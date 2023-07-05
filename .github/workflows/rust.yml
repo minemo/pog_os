@@ -21,6 +21,6 @@ jobs:
       run: sudo apt-get install -y qemu-system-x86
     - uses: actions/checkout@v3
     - name: Build
-      run: cargo build --verbose
+      run: cargo build --verbose -Z bindeps
     - name: Run tests
       run: cargo test --verbose
