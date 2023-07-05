@@ -17,10 +17,12 @@ jobs:
     steps:
     - name: Add rustup llvm component
       run: rustup component add llvm-tools-preview
+    - name: Add target
+      run: rustup target add x86_64-unknown-none
     - name: Install qemu
       run: sudo apt-get install -y qemu-system-x86
     - uses: actions/checkout@v3
     - name: Build
-      run: cargo build --verbose -Z bindeps
+      run: cargo build --verbose -Zbindeps -Zbuild-std --target x86_64-unknown-linux-gnu
     - name: Run tests
       run: cargo test --verbose
