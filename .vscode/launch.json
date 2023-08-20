@@ -7,43 +7,6 @@
         {
             "type": "lldb",
             "request": "launch",
-            "name": "Debug executable 'kernel'",
-            "cargo": {
-                "args": [
-                    "build",
-                    "--bin=kernel",
-                    "--package=kernel"
-                ],
-                "filter": {
-                    "name": "kernel",
-                    "kind": "bin"
-                }
-            },
-            "args": [],
-            "cwd": "${workspaceFolder}"
-        },
-        {
-            "type": "lldb",
-            "request": "launch",
-            "name": "Debug unit tests in executable 'kernel'",
-            "cargo": {
-                "args": [
-                    "test",
-                    "--no-run",
-                    "--bin=kernel",
-                    "--package=kernel"
-                ],
-                "filter": {
-                    "name": "kernel",
-                    "kind": "bin"
-                }
-            },
-            "args": [],
-            "cwd": "${workspaceFolder}"
-        },
-        {
-            "type": "lldb",
-            "request": "launch",
             "name": "Debug executable 'pog_os'",
             "cargo": {
                 "args": [
