@@ -15,6 +15,8 @@ fn main() {
     } else {
         cmd.arg("-drive").arg(format!("format=raw,file={bios_path}"));
     }
+    // add ISA debug OS exit
+    cmd.arg("-device").arg("isa-debug-exit,iobase=0xf4,iosize=0x04");
     let mut child = cmd.spawn().unwrap();
     child.wait().unwrap();
 }
