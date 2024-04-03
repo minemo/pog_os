@@ -8,8 +8,6 @@ authors = ["WorksByM <wittki56@gmail.com>"]
 bootloader = "0.11.4"
 kernel = { path = "kernel", artifact = "bin", target = "x86_64-unknown-none" }
 
-[dependencies]
-ovmf-prebuilt = "0.1.0-alpha.1"
 
 [workspace]
 members = ["kernel"]
