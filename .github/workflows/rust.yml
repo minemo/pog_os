@@ -15,12 +15,12 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-    - name: Add rustup llvm component
-      run: rustup component add llvm-tools-preview
     - name: Add kernel target
       run: rustup target add x86_64-unknown-none
     - name: Add build target
       run: rustup target add x86_64-unknown-linux-gnu
+    - name: Add rustup llvm component
+      run: rustup component add llvm-tools-preview
     - uses: actions/checkout@v3
     - name: Build
-      run: cargo build --verbose -Zbindeps -Zbuild-std --target x86_64-unknown-linux-gnu
+      run: cargo build
