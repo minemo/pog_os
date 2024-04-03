@@ -31,5 +31,5 @@ jobs:
       with:
         name: boot-imgs
         path: |
-          ${{ env.UEFI_PATH }}
-          ${{ env.BIOS_PATH }}
+          /home/runner/work/pog_os/pog_os/target/debug/build/pog_os-*/out/bios.img
+          /home/runner/work/pog_os/pog_os/target/debug/build/pog_os-*/out/uefi.img
