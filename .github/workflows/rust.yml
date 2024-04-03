@@ -26,8 +26,6 @@ jobs:
     - uses: actions/checkout@v3
     - name: Build
       run: cargo run --verbose
-    - name: Set env-variables
-      run: echo "UEFI_PATH=${BUILD_UEFI_PATH}" >> $GITHUB_ENV && echo "BIOS_PATH=${BUILD_BIOS_PATH}" >> $GITHUB_ENV
     - name: Publish
       uses: actions/upload-artifact@v4
       with:

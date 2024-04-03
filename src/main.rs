@@ -10,8 +10,14 @@ fn main() {
     match std::env::var_os("CI") {
         Some(v) => {
             println!("In CI environment, setting env-vars");
-            set_var("BUILD_UEFI_PATH", uefi_path);
-            set_var("BUILD_BIOS_PATH", bios_path);
+            std::process::Command::new("bash")
+                .arg(format!("echo \"UEFI_PATH=${uefi_path}\" >> $GITHUB_ENV"))
+                .spawn()
+                .expect("failed to execute process");
+            std::process::Command::new("bash")
+                .arg(format!("echo \"BIOS_PATH=${bios_path}\" >> $GITHUB_ENV"))
+                .spawn()
+                .expect("failed to execute process");
         },
         _ => {
             println!("Not in CI environment, running qemu");
