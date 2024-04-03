@@ -25,4 +25,12 @@ jobs:
       run: rustup component add llvm-tools-preview
     - uses: actions/checkout@v3
     - name: Build
-      run: cargo build --verbose
+      run: cargo run --verbose
+    - uses: actions/upload-artifact@v4
+      with:
+        name: uefi.img
+        path: ${{ env.BUILD_UEFI_PATH }}
+    - uses: actions/upload-artifact@v4
+      with:
+        name: bios.img
+        path: ${{ env.BUILD_BIOS_PATH }}
