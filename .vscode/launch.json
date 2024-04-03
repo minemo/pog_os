@@ -12,7 +12,8 @@
                 "args": [
                     "build",
                     "--bin=pog_os",
-                    "--package=pog_os"
+                    "--package=pog_os",
+                    // "-Z threads=8"
                 ],
                 "filter": {
                     "name": "pog_os",

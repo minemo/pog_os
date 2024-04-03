@@ -10,6 +10,8 @@ use crate::framebuffer::FrameBufferWriter;
 
 mod framebuffer;
 
+mod serial;
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[repr(u32)]
 pub enum QemuExitCode {
@@ -47,15 +49,15 @@ fn kmain(boot_info: &'static mut bootloader_api::BootInfo) -> ! {
             unsafe {
                 LOGGER = Some(FrameBufferWriter::new(fb.buffer_mut(), info));
             }
-
         },
         None => panic!(),
     }
     // if framebuffer setup failed, we won't even reach here
 
     println!("Hello World{}", "!");
-
+        
     loop {}
+    
 }
 
 fn get_logger() -> &'static mut FrameBufferWriter {
@@ -87,10 +89,9 @@ pub fn _print(args: fmt::Arguments) {
 }
 
 
-//* START OF TEST STUFF
-
-#[cfg(test)]
-fn test_runner(tests: &[&dyn Fn()]) {
+//* TESTS
+//TODO fix tests not working due to https://github.com/rust-osdev/bootloader/issues/366
+pub fn test_runner(tests: &[&dyn Fn()]) {
     println!("Running {} tests", tests.len());
     for test in tests {
         test();
