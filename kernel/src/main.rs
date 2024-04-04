@@ -42,9 +42,6 @@ fn kmain(boot_info: &'static mut bootloader_api::BootInfo) -> ! {
     println!("Hello World{}", "!");
     serial_println!("Hello Serial{}", "!");
 
-    unsafe {
-        *(0xdeadbeef as *mut u8) = 42;
-    };
 
     loop {}
     
