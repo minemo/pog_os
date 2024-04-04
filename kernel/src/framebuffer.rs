@@ -4,6 +4,8 @@ use font_constants::BACKUP_CHAR;
 use noto_sans_mono_bitmap::{
     get_raster, get_raster_width, FontWeight, RasterHeight, RasterizedChar,
 };
+use spinning_top::{RawSpinlock, Spinlock};
+use generic_once_cell::OnceCell;
 
 const LINE_SPACING: usize = 2;
 const LETTER_SPACING: usize = 0;
@@ -135,4 +137,23 @@ impl fmt::Write for FrameBufferWriter {
         }
         Ok(())
     }
+}
+
+pub static FBWRITER: OnceCell<RawSpinlock, Spinlock<FrameBufferWriter>> = OnceCell::new();
+
+#[doc(hidden)]
+pub fn _print(args: fmt::Arguments) {
+  use core::fmt::Write;
+  FBWRITER.get().unwrap().lock().write_fmt(args).unwrap();
+}
+
+#[macro_export]
+macro_rules! print {
+    ($($arg:tt)*) => ($crate::framebuffer::_print(format_args!($($arg)*)));
+}
+
+#[macro_export]
+macro_rules! println {
+    () => ($crate::print!("\n"));
+    ($($arg:tt)*) => ($crate::print!("{}\n", format_args!($($arg)*)));
 }
