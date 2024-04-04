@@ -1,5 +1,3 @@
-use std::env::set_var;
-
 fn main() {
     // read env variables that were set in build script
     let uefi_path = env!("UEFI_PATH");
@@ -18,6 +16,9 @@ fn main() {
             
             // add ISA debug OS exit
             cmd.arg("-device").arg("isa-debug-exit,iobase=0xf4,iosize=0x04");
+
+            // add serial support
+            cmd.arg("-serial").arg("stdio");
             
             // run qemu
             let mut child = cmd.spawn().unwrap();

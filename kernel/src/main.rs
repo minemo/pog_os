@@ -1,5 +1,6 @@
 #![no_std] // no rust standard lib
 #![no_main] // no rust entry points
+//! See test TODO below
 #![feature(custom_test_frameworks)]
 #![test_runner(crate::test_runner)]
 #![reexport_test_harness_main = "test_main"]
@@ -55,7 +56,10 @@ fn kmain(boot_info: &'static mut bootloader_api::BootInfo) -> ! {
     // if framebuffer setup failed, we won't even reach here
 
     println!("Hello World{}", "!");
-        
+    serial_println!("Hello Serial{}", "!");
+
+    
+
     loop {}
     
 }
@@ -69,6 +73,8 @@ fn get_logger() -> &'static mut FrameBufferWriter {
 // handles panic (duh)
 #[panic_handler]
 fn panic(_info: &core::panic::PanicInfo) -> ! {
+    // dump the info to serial for now
+    serial_println!("Panic: {}", _info);
     loop {}
 }
 
@@ -92,7 +98,7 @@ pub fn _print(args: fmt::Arguments) {
 //* TESTS
 //TODO fix tests not working due to https://github.com/rust-osdev/bootloader/issues/366
 pub fn test_runner(tests: &[&dyn Fn()]) {
-    println!("Running {} tests", tests.len());
+    serial_println!("Running {} tests", tests.len());
     for test in tests {
         test();
     }
@@ -102,7 +108,7 @@ pub fn test_runner(tests: &[&dyn Fn()]) {
 
 #[test_case]
 fn trivial_assertion() {
-    print!("trivial assertion... ");
+    serial_print!("trivial assertion... ");
     assert_eq!(1, 1);
     println!("[ok]");
 }
