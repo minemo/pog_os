@@ -6,7 +6,7 @@ fn main() {
     println!("UEFI-Kernel at: {}\nBIOS-Kernel at: {}", uefi_path, bios_path);
     
     match std::env::var_os("CI") {
-        Some(v) => {
+        Some(_) => {
             println!("In CI environment, not running qemu");
         },
         _ => {
