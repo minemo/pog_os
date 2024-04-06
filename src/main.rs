@@ -20,7 +20,7 @@ fn main() {
             // add serial support
             cmd.arg("-serial").arg("stdio");
             
-            cmd.arg("-d").arg("pic");
+            // cmd.arg("-d").arg("int");
 
             // run qemu
             let mut child = cmd.spawn().unwrap();
