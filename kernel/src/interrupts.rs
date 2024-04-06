@@ -1,7 +1,7 @@
 use x86_64::structures::idt::{InterruptDescriptorTable, InterruptStackFrame};
 use generic_once_cell::Lazy;
 use spinning_top::{RawSpinlock,Spinlock};
-use crate::println;
+use crate::{print,println};
 use crate::gdt;
 use crate::pic::ChainedPics;
 
@@ -20,11 +20,7 @@ pub enum InterruptIndex {
 
 impl InterruptIndex {
   fn as_u8(self) -> u8 {
-    self as u8
-  }
-
-  fn as_usize(self) -> usize {
-    usize::from(self.as_u8())
+      self as u8
   }
 }
 
@@ -34,6 +30,7 @@ static IDT: Lazy<RawSpinlock,InterruptDescriptorTable> = Lazy::new(|| {
   unsafe {
     idt.double_fault.set_handler_fn(double_fault_handler).set_stack_index(gdt::DOUBLE_FAULT_IST_INDEX);
   }
+  idt[32].set_handler_fn(timer_interrupt_handler);
   idt
 });
 
@@ -47,4 +44,12 @@ extern "x86-interrupt" fn breakpoint_handler(stack_frame: InterruptStackFrame) {
 
 extern "x86-interrupt" fn double_fault_handler(stack_frame: InterruptStackFrame, _error_code: u64) -> ! {
   panic!("EXCEPTION: DOUBLE FAULT\n{:#?}", stack_frame);
+}
+
+extern "x86-interrupt" fn timer_interrupt_handler(_stack_frame: InterruptStackFrame) {
+  print!(".");
+
+  unsafe {
+    PICS.lock().send_eoi(InterruptIndex::Timer.as_u8())
+  }
 }

@@ -3,11 +3,13 @@ use core::ptr::addr_of;
 use x86_64::VirtAddr;
 use x86_64::structures::tss::TaskStateSegment;
 use x86_64::structures::gdt::{Descriptor, GlobalDescriptorTable, SegmentSelector};
+use x86_64::instructions::tables::{load_tss,sgdt};
 use generic_once_cell::Lazy;
 use spinning_top::RawSpinlock;
 
 struct Selectors {
   code_selector: SegmentSelector,
+  data_selector: SegmentSelector,
   tss_selector: SegmentSelector,
 }
 
@@ -29,18 +31,23 @@ static TSS: Lazy<RawSpinlock, TaskStateSegment> = Lazy::new(|| {
 });
 
 static GDT: Lazy<RawSpinlock,(GlobalDescriptorTable, Selectors)> = Lazy::new(|| {
+  // let prev_gdt_ptr = sgdt();
+  // println!("Previous GDT: (Ptr: 0x{:x},Size:{})", prev_gdt_ptr.base.as_u64(),prev_gdt_ptr.limit);
   let mut gdt = GlobalDescriptorTable::new();
   let code_selector = gdt.append(Descriptor::kernel_code_segment());
+  let data_selector = gdt.append(Descriptor::kernel_data_segment());
   let tss_selector = gdt.append(Descriptor::tss_segment(&TSS));
-  (gdt, Selectors { code_selector, tss_selector})
+  (gdt, Selectors { code_selector, data_selector, tss_selector})
 });
 
 pub fn init() {
-  use x86_64::instructions::tables::load_tss;
-  use x86_64::instructions::segmentation::{CS, Segment};
-  
+  use x86_64::instructions::segmentation::{CS,DS,Segment};
+
   GDT.0.load();
+  // let new_gdt_ptr = sgdt();
+  // println!("New GDT: (Ptr: 0x{:x},Size:{})", new_gdt_ptr.base.as_u64(),new_gdt_ptr.limit);
   unsafe {
+    DS::set_reg(GDT.1.data_selector);
     CS::set_reg(GDT.1.code_selector);
     load_tss(GDT.1.tss_selector);
   }

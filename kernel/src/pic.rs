@@ -1,5 +1,3 @@
-#![no_std]
-
 use x86_64::instructions::port::Port;
 
 const ICW1_ICW4: u8 = 0x01;
@@ -62,9 +60,9 @@ impl ChainedPics {
     let saved_masks = self.read_masks();
 
     // start init on both PICs
-    self.pics[0].data.write(ICW1_INIT | ICW1_ICW4);
+    self.pics[0].data.write(0x11);
     wait();
-    self.pics[1].data.write(ICW1_INIT | ICW1_ICW4);
+    self.pics[1].data.write(0x11);
     wait();
 
     // Send 3-Byte init sequence to each
@@ -85,7 +83,6 @@ impl ChainedPics {
 
     // restore masks
     self.write_masks(saved_masks[0], saved_masks[1]);
-    
   }
 
   pub unsafe fn read_masks(&mut self) -> [u8; 2] {

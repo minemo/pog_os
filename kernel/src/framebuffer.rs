@@ -141,6 +141,19 @@ impl fmt::Write for FrameBufferWriter {
 
 pub static FBWRITER: OnceCell<RawSpinlock, Spinlock<FrameBufferWriter>> = OnceCell::new();
 
+pub fn init(boot_info: &'static mut bootloader_api::BootInfo) {
+    let possible_fb = boot_info.framebuffer.as_mut();
+  match possible_fb {
+      Some(fb) => {
+          let info = fb.info();
+          FBWRITER.get_or_init(||{
+              Spinlock::new(FrameBufferWriter::new(fb.buffer_mut(), info))
+          });
+      },
+      None => panic!(),
+  }
+}
+
 #[doc(hidden)]
 pub fn _print(args: fmt::Arguments) {
   use core::fmt::Write;

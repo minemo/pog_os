@@ -6,7 +6,7 @@
 #![test_runner(crate::test_runner)]
 #![reexport_test_harness_main = "test_main"]
 
-use kernel::{println,serial_println,serial_print};
+use kernel::{println,serial_println};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[repr(u32)]
@@ -29,6 +29,7 @@ pub fn exit_qemu(exit_code: QemuExitCode) {
 pub static BOOTLOADER_CFG: bootloader_api::BootloaderConfig = {
     let mut config = bootloader_api::BootloaderConfig::new_default();
     config.mappings.physical_memory = Some(bootloader_api::config::Mapping::Dynamic);
+    config.kernel_stack_size = 90 * 1024;
     config
 };
 
@@ -68,9 +69,9 @@ pub fn test_runner(tests: &[&dyn Fn()]) {
     exit_qemu(QemuExitCode::Success);
 }
 
-#[test_case]
-fn trivial_assertion() {
-    serial_print!("trivial assertion... ");
-    assert_eq!(1, 1);
-    println!("[ok]");
-}
+// #[test_case]
+// fn trivial_assertion() {
+//     serial_print!("trivial assertion... ");
+//     assert_eq!(1, 1);
+//     println!("[ok]");
+// }

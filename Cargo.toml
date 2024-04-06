@@ -5,7 +5,7 @@ edition = "2021"
 authors = ["WorksByM <wittki56@gmail.com>"]
 
 [build-dependencies]
-bootloader = "0.11.4"
+bootloader = "0.11.7"
 kernel = { path = "kernel", artifact = "bin", target = "x86_64-unknown-none" }
 
 
