@@ -60,9 +60,9 @@ impl ChainedPics {
     let saved_masks = self.read_masks();
 
     // start init on both PICs
-    self.pics[0].data.write(0x11);
+    self.pics[0].data.write(ICW1_INIT | ICW1_ICW4);
     wait();
-    self.pics[1].data.write(0x11);
+    self.pics[1].data.write(ICW1_INIT | ICW1_ICW4);
     wait();
 
     // Send 3-Byte init sequence to each

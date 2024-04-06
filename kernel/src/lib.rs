@@ -1,8 +1,11 @@
 #![no_std]
 #![feature(abi_x86_interrupt)]
 
+use core::arch::asm;
+
 use framebuffer::{FrameBufferWriter, FBWRITER};
 use spinning_top::Spinlock;
+use x86_64::registers::rflags::RFlags;
 
 pub mod framebuffer;
 pub mod interrupts;
@@ -21,6 +24,8 @@ pub fn init(boot_info: &'static mut bootloader_api::BootInfo) {
   // Init gdt and idt
   gdt::init();
   interrupts::init_idt();
-  unsafe { interrupts::PICS.lock().init()};
-  // x86_64::instructions::interrupts::enable();
+  unsafe { 
+    interrupts::PICS.lock().init();
+  };
+  x86_64::instructions::interrupts::enable();
 }

@@ -18,7 +18,7 @@ pub const DOUBLE_FAULT_IST_INDEX: u16 = 0;
 static TSS: Lazy<RawSpinlock, TaskStateSegment> = Lazy::new(|| {
   let mut tss = TaskStateSegment::new();
   tss.interrupt_stack_table[DOUBLE_FAULT_IST_INDEX as usize] = {
-    const STCK_SIZE: usize = 4096 * 5;
+    const STCK_SIZE: usize = 5 * 4096;
     static mut STACK: [u8; STCK_SIZE] = [0; STCK_SIZE];
 
     let stack_start = VirtAddr::from_ptr(unsafe {
