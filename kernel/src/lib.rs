@@ -1,18 +1,12 @@
 #![no_std]
 #![feature(abi_x86_interrupt)]
 
-use core::arch::asm;
-
-use framebuffer::{FrameBufferWriter, FBWRITER};
-use spinning_top::Spinlock;
-use x86_64::registers::rflags::RFlags;
-
 pub mod framebuffer;
 pub mod interrupts;
 pub mod serial;
 pub mod gdt;
 pub mod pic;
-// pub mod apic;
+pub mod apic;
 
 pub fn init(boot_info: &'static mut bootloader_api::BootInfo) {
   // Set up initial framebuffer logic
