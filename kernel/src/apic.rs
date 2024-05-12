@@ -1,5 +1,3 @@
-#![no_std]
-
 use x86_64::instructions::port::Port;
 use x86_64::registers::model_specific::{CetFlags, Msr};
 
@@ -33,7 +31,7 @@ impl Apic {
     }
 
     unsafe fn set_apic_base(&mut self, base: u64) {
-      let val = (base & 0xfffff0000);
+      let val = base & 0xfffff0000;
       self.register.write(val);
     }
 }

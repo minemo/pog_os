@@ -1,5 +1,5 @@
 use bootloader_api::info::{FrameBufferInfo, PixelFormat};
-use core::{fmt, ptr};
+use core::{borrow::BorrowMut, fmt, ptr};
 use font_constants::BACKUP_CHAR;
 use noto_sans_mono_bitmap::{
     get_raster, get_raster_width, FontWeight, RasterHeight, RasterizedChar,
@@ -142,7 +142,7 @@ impl fmt::Write for FrameBufferWriter {
 pub static FBWRITER: OnceCell<RawSpinlock, Spinlock<FrameBufferWriter>> = OnceCell::new();
 
 pub fn init(boot_info: &'static mut bootloader_api::BootInfo) {
-    let possible_fb = boot_info.framebuffer.as_mut();
+    let possible_fb = boot_info.borrow_mut().framebuffer.as_mut();
   match possible_fb {
       Some(fb) => {
           let info = fb.info();

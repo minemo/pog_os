@@ -44,8 +44,6 @@ pub fn init() {
   use x86_64::instructions::segmentation::{CS,DS,Segment};
 
   GDT.0.load();
-  // let new_gdt_ptr = sgdt();
-  // println!("New GDT: (Ptr: 0x{:x},Size:{})", new_gdt_ptr.base.as_u64(),new_gdt_ptr.limit);
   unsafe {
     DS::set_reg(GDT.1.data_selector);
     CS::set_reg(GDT.1.code_selector);
