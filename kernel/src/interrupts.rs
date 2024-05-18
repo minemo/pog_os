@@ -97,8 +97,12 @@ extern "x86-interrupt" fn keyboard_interrupt_handler(_stack_frame: InterruptStac
     if let Ok(Some(event)) = keyboard.add_byte(scancode) {
         if let Some(key) = keyboard.process_keyevent(event) {
             match key {
-                DecodedKey::Unicode(char) => print!("{}", char),
-                DecodedKey::RawKey(raw) => print!("{:?}", raw),
+                DecodedKey::Unicode(char) => {
+                    print!("{}", char);
+                },
+                DecodedKey::RawKey(raw) => {
+                    print!("{:?}", raw)
+                },
             }
         }
     }
@@ -107,4 +111,8 @@ extern "x86-interrupt" fn keyboard_interrupt_handler(_stack_frame: InterruptStac
         PICS.lock()
             .notify_end_of_interrupt(InterruptIndex::Keyboard.as_u8());
     }
+}
+
+extern "x86-interrupt" fn mouse_interrupt_handler(_stack_frame: InterruptStackFrame) {
+    //TODO implement mouse input   
 }

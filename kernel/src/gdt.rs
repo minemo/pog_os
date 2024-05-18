@@ -2,7 +2,7 @@ use core::ptr::addr_of;
 
 use generic_once_cell::Lazy;
 use spinning_top::RawSpinlock;
-use x86_64::instructions::tables::{load_tss, sgdt};
+use x86_64::instructions::tables::load_tss;
 use x86_64::structures::gdt::{Descriptor, GlobalDescriptorTable, SegmentSelector};
 use x86_64::structures::tss::TaskStateSegment;
 use x86_64::VirtAddr;

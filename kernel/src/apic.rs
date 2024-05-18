@@ -1,5 +1,5 @@
 use x86_64::instructions::port::Port;
-use x86_64::registers::model_specific::{CetFlags, Msr};
+use x86_64::registers::model_specific::Msr;
 
 const APIC_BASE_MSR: u32 = 0x1B;
 const APIC_BASE_MSR_BSP: u32 = 0x100;

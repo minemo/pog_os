@@ -10,6 +10,7 @@ pub mod interrupts;
 pub mod memory;
 pub mod serial;
 pub mod allocator;
+pub mod input;
 
 pub fn hlt_loop() -> ! {
     loop {

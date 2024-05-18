@@ -9,7 +9,7 @@
 extern crate alloc;
 
 use bootloader_api::BootInfo;
-use kernel::{allocator, memory::{self, BootInfoFrameAllocator}, println, serial_print, serial_println};
+use kernel::{allocator, memory::{self, BootInfoFrameAllocator}, println};
 use x86_64::VirtAddr;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -70,7 +70,7 @@ fn panic(info: &core::panic::PanicInfo) -> ! {
 //TODO fix tests not working due to https://github.com/rust-osdev/bootloader/issues/366
 #[cfg(test)]
 pub fn test_runner(tests: &[&dyn Fn()]) {
-    serial_println!("Running {} tests", tests.len());
+    // serial_println!("Running {} tests", tests.len());
     for test in tests {
         test();
     }
@@ -78,9 +78,9 @@ pub fn test_runner(tests: &[&dyn Fn()]) {
     exit_qemu(QemuExitCode::Success);
 }
 
-#[test_case]
-fn trivial_assertion() {
-    serial_print!("trivial assertion... ");
-    assert_eq!(1, 1);
-    println!("[ok]");
-}
+// #[test_case]
+// fn trivial_assertion() {
+//     serial_print!("trivial assertion... ");
+//     assert_eq!(1, 1);
+//     println!("[ok]");
+// }
