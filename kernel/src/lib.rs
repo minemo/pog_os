@@ -1,12 +1,15 @@
 #![no_std]
 #![feature(abi_x86_interrupt)]
 
+extern crate alloc;
+
 pub mod apic;
 pub mod framebuffer;
 pub mod gdt;
 pub mod interrupts;
 pub mod memory;
 pub mod serial;
+pub mod allocator;
 
 pub fn hlt_loop() -> ! {
     loop {
@@ -36,6 +39,7 @@ use bootloader_api::{entry_point, BootInfo};
 entry_point!(test_kernel_main);
 
 #[cfg(test)]
-fn test_kernel_main(_boot_info: &'static mut bootloader_api::BootInfo) -> ! {
-    init(boot_info);
+fn test_kernel_main(_boot_info: &'static mut BootInfo) -> ! {
+    init(_boot_info);
+    hlt_loop();
 }

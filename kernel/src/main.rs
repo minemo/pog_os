@@ -6,8 +6,11 @@
 #![test_runner(crate::test_runner)]
 #![reexport_test_harness_main = "test_main"]
 
+extern crate alloc;
+
 use bootloader_api::BootInfo;
-use kernel::{println, serial_println};
+use kernel::{allocator, memory::{self, BootInfoFrameAllocator}, println, serial_print, serial_println};
+use x86_64::VirtAddr;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[repr(u32)]
@@ -35,8 +38,6 @@ pub static BOOTLOADER_CFG: bootloader_api::BootloaderConfig = {
 bootloader_api::entry_point!(kmain, config = &BOOTLOADER_CFG);
 
 fn kmain(boot_info: &'static mut bootloader_api::BootInfo) -> ! {
-    use kernel::memory::active_level_4_table;
-    use x86_64::VirtAddr;
 
     // Create a BootInfo pointer for the init function to use
     let bi_ptr: *mut BootInfo = &mut *boot_info;
@@ -46,20 +47,13 @@ fn kmain(boot_info: &'static mut bootloader_api::BootInfo) -> ! {
 
     println!("Hello World{}", "!");
 
-    match boot_info.physical_memory_offset.into_option() {
-        Some(x) => {
-            let phys_mem_offset = VirtAddr::new(x);
-            let l4_table = unsafe { active_level_4_table(phys_mem_offset) };
+    let phys_mem_offset = VirtAddr::new(boot_info.physical_memory_offset.take().unwrap());
+    let mut mapper = unsafe { memory::init(phys_mem_offset) };
+    let mut frame_alloc = unsafe {
+        BootInfoFrameAllocator::init(&boot_info.memory_regions)
+    };
 
-            for (i, entry) in l4_table.iter().enumerate() {
-                if !entry.is_unused() {
-                    serial_println!("L4 Entry {}: {:?}", i, entry);
-                }
-            }
-        }
-        None => panic!("No memory mapping found!"),
-    }
-
+    allocator::init_heap(&mut mapper, &mut frame_alloc).expect("heap initialization failed");
 
     kernel::hlt_loop();
 }
