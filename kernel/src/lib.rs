@@ -7,6 +7,7 @@ pub mod serial;
 pub mod gdt;
 pub mod apic;
 pub mod alloc;
+pub mod memory;
 
 pub fn hlt_loop() -> ! {
   loop {

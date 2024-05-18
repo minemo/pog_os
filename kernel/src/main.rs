@@ -35,6 +35,9 @@ pub static BOOTLOADER_CFG: bootloader_api::BootloaderConfig = {
 bootloader_api::entry_point!(kmain, config = &BOOTLOADER_CFG);
 
 fn kmain(boot_info: &'static mut bootloader_api::BootInfo) -> ! {
+    use kernel::memory::active_level_4_table;
+    use x86_64::VirtAddr;
+
     // Create a BootInfo pointer for the init function to use
     let bi_ptr: *mut BootInfo = &mut *boot_info;
 
@@ -42,6 +45,21 @@ fn kmain(boot_info: &'static mut bootloader_api::BootInfo) -> ! {
     kernel::init(unsafe { &mut *bi_ptr });
 
     println!("Hello World{}", "!");
+
+    match boot_info.physical_memory_offset.into_option() {
+        Some(x) => {
+            let phys_mem_offset = VirtAddr::new(x);
+            let l4_table = unsafe { active_level_4_table(phys_mem_offset) };
+
+            for (i, entry) in l4_table.iter().enumerate() {
+                if !entry.is_unused() {
+                    serial_println!("L4 Entry {}: {:?}", i, entry);
+                }
+            }
+        }
+        None => panic!("No memory mapping found!"),
+    }
+
 
     kernel::hlt_loop();
 }
