@@ -171,3 +171,10 @@ macro_rules! println {
     () => ($crate::print!("\n"));
     ($($arg:tt)*) => ($crate::print!("{}\n", format_args!($($arg)*)));
 }
+
+pub fn draw_pixel(x: usize,y: usize,intensity: u8) {
+    use x86_64::instructions::interrupts;
+    interrupts::without_interrupts(|| {
+        FBWRITER.get().unwrap().lock().write_pixel(x, y, intensity);
+    });
+}
