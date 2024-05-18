@@ -1,11 +1,11 @@
 use bootloader_api::info::{FrameBufferInfo, PixelFormat};
 use core::{borrow::BorrowMut, fmt, ptr};
 use font_constants::BACKUP_CHAR;
+use generic_once_cell::OnceCell;
 use noto_sans_mono_bitmap::{
     get_raster, get_raster_width, FontWeight, RasterHeight, RasterizedChar,
 };
 use spinning_top::{RawSpinlock, Spinlock};
-use generic_once_cell::OnceCell;
 
 const LINE_SPACING: usize = 2;
 const LETTER_SPACING: usize = 0;
@@ -48,8 +48,8 @@ impl FrameBufferWriter {
         let mut logger = Self {
             framebuffer,
             info,
-            x_pos:0,
-            y_pos:0,
+            x_pos: 0,
+            y_pos: 0,
         };
         logger.clear();
         logger
@@ -146,21 +146,19 @@ pub fn init(boot_info: &'static mut bootloader_api::BootInfo) {
     match possible_fb {
         Some(fb) => {
             let info = fb.info();
-            FBWRITER.get_or_init(||{
-                Spinlock::new(FrameBufferWriter::new(fb.buffer_mut(), info))
-            });
-        },
+            FBWRITER.get_or_init(|| Spinlock::new(FrameBufferWriter::new(fb.buffer_mut(), info)));
+        }
         None => panic!(),
     }
 }
 
 #[doc(hidden)]
 pub fn _print(args: fmt::Arguments) {
-  use core::fmt::Write;
-  use x86_64::instructions::interrupts;
-  interrupts::without_interrupts(|| {
-    FBWRITER.get().unwrap().lock().write_fmt(args).unwrap();
-  });
+    use core::fmt::Write;
+    use x86_64::instructions::interrupts;
+    interrupts::without_interrupts(|| {
+        FBWRITER.get().unwrap().lock().write_fmt(args).unwrap();
+    });
 }
 
 #[macro_export]
