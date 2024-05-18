@@ -11,6 +11,7 @@ pub mod memory;
 pub mod serial;
 pub mod allocator;
 pub mod input;
+pub mod badapple;
 
 pub fn hlt_loop() -> ! {
     loop {

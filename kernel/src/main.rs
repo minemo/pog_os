@@ -9,7 +9,7 @@
 extern crate alloc;
 
 use bootloader_api::BootInfo;
-use kernel::{allocator, memory::{self, BootInfoFrameAllocator}, println};
+use kernel::{allocator, badapple, framebuffer::draw_pixel, memory::{self, BootInfoFrameAllocator}, println};
 use x86_64::VirtAddr;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -54,6 +54,29 @@ fn kmain(boot_info: &'static mut bootloader_api::BootInfo) -> ! {
     };
 
     allocator::init_heap(&mut mapper, &mut frame_alloc).expect("heap initialization failed");
+
+    unsafe {
+        let scale = 10;
+        for frame in 0..6572 {
+            let f = badapple::BADAPPLE[frame];
+            // println!("Frame len: {}", f.len());
+            // for (i,p) in f.iter().enumerate() {
+            //     let x = (i%48)/8;
+            //     let y = i/64;
+            //     for dx in 1..5 {
+            //         for dy in 1..5 {
+            //             draw_pixel(x*dx, y*dy, *p);
+            //         }
+            //     }
+            // }
+            for x in 0..64*scale/8 {
+                for y in 0..48*scale/8 {
+                    let i = ((64*(y/scale)+(x/scale)))%384;
+                    draw_pixel(x, y, f[i]);
+                }
+            }
+        }
+    }
 
     kernel::hlt_loop();
 }
