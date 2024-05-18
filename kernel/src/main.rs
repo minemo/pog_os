@@ -6,7 +6,8 @@
 #![test_runner(crate::test_runner)]
 #![reexport_test_harness_main = "test_main"]
 
-use kernel::{println,serial_println};
+use bootloader_api::BootInfo;
+use kernel::{println, serial_println};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[repr(u32)]
@@ -24,11 +25,9 @@ pub fn exit_qemu(exit_code: QemuExitCode) {
     }
 }
 
-// create a global logger to make stuff easier 
-
 pub static BOOTLOADER_CFG: bootloader_api::BootloaderConfig = {
     let mut config = bootloader_api::BootloaderConfig::new_default();
-    // config.mappings.physical_memory = Some(bootloader_api::config::Mapping::Dynamic);
+    config.mappings.physical_memory = Some(bootloader_api::config::Mapping::Dynamic);
     // config.kernel_stack_size = 100 * 1024;
     config
 };
@@ -36,16 +35,15 @@ pub static BOOTLOADER_CFG: bootloader_api::BootloaderConfig = {
 bootloader_api::entry_point!(kmain, config = &BOOTLOADER_CFG);
 
 fn kmain(boot_info: &'static mut bootloader_api::BootInfo) -> ! {
+    // Create a BootInfo pointer for the init function to use
+    let bi_ptr: *mut BootInfo = &mut *boot_info;
 
     // Init kernel
-    kernel::init(boot_info);
+    kernel::init(unsafe { &mut *bi_ptr });
 
     println!("Hello World{}", "!");
-    serial_println!("Hello Serial{}", "!");
 
-
-    loop {}
-    
+    kernel::hlt_loop();
 }
 
 // handles panic (duh)
@@ -53,9 +51,8 @@ fn kmain(boot_info: &'static mut bootloader_api::BootInfo) -> ! {
 fn panic(info: &core::panic::PanicInfo) -> ! {
     // dump the info to serial for now
     println!("{}", info);
-    loop {}
+    kernel::hlt_loop();
 }
-
 
 //* TESTS
 //TODO fix tests not working due to https://github.com/rust-osdev/bootloader/issues/366
@@ -69,9 +66,9 @@ pub fn test_runner(tests: &[&dyn Fn()]) {
     exit_qemu(QemuExitCode::Success);
 }
 
-// #[test_case]
-// fn trivial_assertion() {
-//     serial_print!("trivial assertion... ");
-//     assert_eq!(1, 1);
-//     println!("[ok]");
-// }
+#[test_case]
+fn trivial_assertion() {
+    serial_print!("trivial assertion... ");
+    assert_eq!(1, 1);
+    println!("[ok]");
+}

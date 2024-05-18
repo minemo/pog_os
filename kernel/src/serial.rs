@@ -12,7 +12,10 @@ pub static SERIAL1: Lazy<RawSpinlock,Spinlock<SerialPort>> = Lazy::new(||{
 #[doc(hidden)]
 pub fn _print(args: ::core::fmt::Arguments) {
   use core::fmt::Write;
-  SERIAL1.lock().write_fmt(args).expect("error writing to serial");
+  use x86_64::instructions::interrupts;
+  interrupts::without_interrupts(|| {
+    SERIAL1.lock().write_fmt(args).expect("error writing to serial");
+  });
 }
 
 #[macro_export]

@@ -1,11 +1,8 @@
-use x86_64::structures::idt::{InterruptDescriptorTable, InterruptStackFrame};
+use x86_64::structures::idt::{InterruptDescriptorTable, InterruptStackFrame, PageFaultErrorCode};
 use generic_once_cell::Lazy;
 use spinning_top::{RawSpinlock,Spinlock};
-use crate::{print,println};
-use crate::gdt;
-// use crate::pic::ChainedPics;
+use crate::{print,println,gdt,hlt_loop};
 use pic8259::ChainedPics;
-
 
 
 pub const PIC_1_OFFSET: u8 = 32;
@@ -19,7 +16,7 @@ pub static PICS: Spinlock<ChainedPics> = Spinlock::new(unsafe {
 #[repr(u8)]
 pub enum InterruptIndex {
     Timer = PIC_1_OFFSET,
-    Keyboard = PIC_1_OFFSET + 1,
+    Keyboard,
 }
 
 impl InterruptIndex {
@@ -36,6 +33,7 @@ static IDT: Lazy<RawSpinlock,InterruptDescriptorTable> = Lazy::new(|| {
   }
   idt[InterruptIndex::Timer.as_u8()].set_handler_fn(timer_interrupt_handler);
   idt[InterruptIndex::Keyboard.as_u8()].set_handler_fn(keyboard_interrupt_handler);
+  idt.page_fault.set_handler_fn(page_fault_handler);
   idt
 });
 
@@ -51,6 +49,16 @@ extern "x86-interrupt" fn double_fault_handler(stack_frame: InterruptStackFrame,
   panic!("EXCEPTION: DOUBLE FAULT\n{:#?}\nERROR CODE:{:#?}", stack_frame, error_code);
 }
 
+extern "x86-interrupt" fn page_fault_handler(stack_frame: InterruptStackFrame,error_code: PageFaultErrorCode) {
+  use x86_64::registers::control::Cr2;
+
+  println!("EXCEPTION: PAGE FAULT");
+  println!("Accessed Address: {:?}", Cr2::read());
+  println!("Error Code: {:?}", error_code);
+  println!("{:#?}", stack_frame);
+  hlt_loop();
+}
+
 extern "x86-interrupt" fn timer_interrupt_handler(_stack_frame: InterruptStackFrame) {
   // print!(".");
 
@@ -60,7 +68,29 @@ extern "x86-interrupt" fn timer_interrupt_handler(_stack_frame: InterruptStackFr
 }
 
 extern "x86-interrupt" fn keyboard_interrupt_handler(_stack_frame: InterruptStackFrame) {
-  print!(".");
+  use pc_keyboard::{layouts, DecodedKey, HandleControl, Keyboard, ScancodeSet1};
+  use x86_64::instructions::port::Port;
+
+  static KEYBOARD: Lazy<RawSpinlock,Spinlock<Keyboard<layouts::Us104Key, ScancodeSet1>>> = Lazy::new(|| {
+    Spinlock::new(
+      Keyboard::new(ScancodeSet1::new(), layouts::Us104Key, HandleControl::Ignore)
+    )
+  });
+
+  let mut keyboard = KEYBOARD.lock();
+  let mut port = Port::new(0x60);
+
+  let scancode: u8 = unsafe {
+      port.read()
+  };
+  if let Ok(Some(event)) = keyboard.add_byte(scancode) {
+    if let Some(key) = keyboard.process_keyevent(event) {
+      match key {
+        DecodedKey::Unicode(char) => print!("{}",char),
+        DecodedKey::RawKey(raw) => print!("{:?}",raw),
+      }
+    }
+  }
 
   unsafe {
     PICS.lock().notify_end_of_interrupt(InterruptIndex::Keyboard.as_u8());

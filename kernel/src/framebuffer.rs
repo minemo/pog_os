@@ -143,21 +143,24 @@ pub static FBWRITER: OnceCell<RawSpinlock, Spinlock<FrameBufferWriter>> = OnceCe
 
 pub fn init(boot_info: &'static mut bootloader_api::BootInfo) {
     let possible_fb = boot_info.borrow_mut().framebuffer.as_mut();
-  match possible_fb {
-      Some(fb) => {
-          let info = fb.info();
-          FBWRITER.get_or_init(||{
-              Spinlock::new(FrameBufferWriter::new(fb.buffer_mut(), info))
-          });
-      },
-      None => panic!(),
-  }
+    match possible_fb {
+        Some(fb) => {
+            let info = fb.info();
+            FBWRITER.get_or_init(||{
+                Spinlock::new(FrameBufferWriter::new(fb.buffer_mut(), info))
+            });
+        },
+        None => panic!(),
+    }
 }
 
 #[doc(hidden)]
 pub fn _print(args: fmt::Arguments) {
   use core::fmt::Write;
-  FBWRITER.get().unwrap().lock().write_fmt(args).unwrap();
+  use x86_64::instructions::interrupts;
+  interrupts::without_interrupts(|| {
+    FBWRITER.get().unwrap().lock().write_fmt(args).unwrap();
+  });
 }
 
 #[macro_export]
