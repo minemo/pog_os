@@ -1,6 +1,7 @@
 use crate::{gdt, hlt_loop, print, println};
 use generic_once_cell::Lazy;
 use pic8259::ChainedPics;
+use x2apic::lapic::{LocalApic, LocalApicBuilder, xapic_base};
 use spinning_top::{RawSpinlock, Spinlock};
 use x86_64::structures::idt::{InterruptDescriptorTable, InterruptStackFrame, PageFaultErrorCode};
 
@@ -21,7 +22,32 @@ impl InterruptIndex {
     fn as_u8(self) -> u8 {
         self as u8
     }
+
+    fn as_usize(self) -> usize {
+        self as usize
+    }
 }
+
+pub static APIC_PHYS_ADDR: Lazy<RawSpinlock, u64> = Lazy::new(||{
+    unsafe {
+        xapic_base()
+    }
+});
+
+pub static APIC_VIRT_ADDR: Lazy<RawSpinlock, u64> = Lazy::new(||{
+    unsafe {
+        xapic_base()
+    }
+});
+
+pub static LAPIC: Spinlock<Lazy<RawSpinlock,LocalApic>> = Spinlock::new(Lazy::new(||{
+    let lapic = LocalApicBuilder::new()
+                                .timer_vector(InterruptIndex::Timer.as_usize())
+                                .set_xapic_base(0x0 as u64)
+                                .build()
+                                .unwrap_or_else(|err|{panic!("{}",err)});
+    lapic
+}));
 
 static IDT: Lazy<RawSpinlock, InterruptDescriptorTable> = Lazy::new(|| {
     let mut idt = InterruptDescriptorTable::new();
@@ -113,6 +139,6 @@ extern "x86-interrupt" fn keyboard_interrupt_handler(_stack_frame: InterruptStac
     }
 }
 
-extern "x86-interrupt" fn mouse_interrupt_handler(_stack_frame: InterruptStackFrame) {
+extern "x86-interrupt" fn _mouse_interrupt_handler(_stack_frame: InterruptStackFrame) {
     //TODO implement mouse input   
 }

@@ -28,7 +28,8 @@ pub fn init(boot_info: &'static mut bootloader_api::BootInfo) {
     gdt::init();
     interrupts::init_idt();
     unsafe {
-        interrupts::PICS.lock().initialize();
+        // interrupts::PICS.lock().initialize();
+        interrupts::LAPIC.lock().enable(); //TODO check if this actually works
     };
     x86_64::instructions::interrupts::enable();
 }
