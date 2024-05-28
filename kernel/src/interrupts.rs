@@ -43,7 +43,9 @@ pub static APIC_VIRT_ADDR: Lazy<RawSpinlock, u64> = Lazy::new(||{
 pub static LAPIC: Spinlock<Lazy<RawSpinlock,LocalApic>> = Spinlock::new(Lazy::new(||{
     let lapic = LocalApicBuilder::new()
                                 .timer_vector(InterruptIndex::Timer.as_usize())
-                                .set_xapic_base(0x0 as u64)
+                                .error_vector(InterruptIndex::Timer.as_usize() + 4)
+                                .spurious_vector(InterruptIndex::Timer.as_usize() + 5)
+                                .set_xapic_base(0x1B)
                                 .build()
                                 .unwrap_or_else(|err|{panic!("{}",err)});
     lapic

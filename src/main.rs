@@ -1,9 +1,15 @@
+use std::fs;
+
 fn main() {
     // read env variables that were set in build script
     let uefi_path = env!("UEFI_PATH");
     let bios_path = env!("BIOS_PATH");
 
-    println!("UEFI-Kernel at: {}\nBIOS-Kernel at: {}", uefi_path, bios_path);
+    let uefi_size: f64 = fs::metadata(uefi_path).unwrap().len() as f64;
+    let bios_size: f64 = fs::metadata(bios_path).unwrap().len() as f64;
+
+
+    println!("UEFI-Kernel at: {} ({:.2} mb)\nBIOS-Kernel at: {} ({:.2} mb)", uefi_path, uefi_size/1000000.0, bios_path, bios_size/1000000.0);
     
     match std::env::var_os("CI") {
         Some(_) => {
