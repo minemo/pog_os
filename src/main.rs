@@ -24,7 +24,6 @@ fn main() {
 
             // set device specs
             cmd.arg("-m").arg("4G");            
-            cmd.arg("-mem-prealloc");            
             
             // add ISA debug OS exit
             cmd.arg("-device").arg("isa-debug-exit,iobase=0xf4,iosize=0x04");
