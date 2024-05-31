@@ -3,13 +3,13 @@
 
 extern crate alloc;
 
+pub mod allocator;
 pub mod framebuffer;
 pub mod gdt;
+pub mod input;
 pub mod interrupts;
 pub mod memory;
 pub mod serial;
-pub mod allocator;
-pub mod input;
 
 pub fn hlt_loop() -> ! {
     loop {

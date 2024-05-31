@@ -1,7 +1,10 @@
 use crate::{gdt, hlt_loop, print, println};
 use generic_once_cell::Lazy;
-use x2apic::{ioapic::IoApic, lapic::{LocalApic, LocalApicBuilder}};
 use spinning_top::{RawSpinlock, Spinlock};
+use x2apic::{
+    ioapic::IoApic,
+    lapic::{LocalApic, LocalApicBuilder},
+};
 use x86_64::structures::idt::{InterruptDescriptorTable, InterruptStackFrame, PageFaultErrorCode};
 
 pub const PIC_1_OFFSET: u8 = 32;
@@ -28,18 +31,18 @@ impl InterruptIndex {
     }
 }
 
-pub static LAPIC: Spinlock<Lazy<RawSpinlock,LocalApic>> = Spinlock::new(Lazy::new(||{
+pub static LAPIC: Spinlock<Lazy<RawSpinlock, LocalApic>> = Spinlock::new(Lazy::new(|| {
     let lapic = LocalApicBuilder::new()
-                                .timer_vector(0x20)
-                                .error_vector(0x20)
-                                .spurious_vector(0x2F)
-                                .set_xapic_base(APIC_VIRT_ADDR)
-                                .build()
-                                .unwrap_or_else(|err|{panic!("{}",err)});
+        .timer_vector(0x20)
+        .error_vector(0x20)
+        .spurious_vector(0x2F)
+        .set_xapic_base(APIC_VIRT_ADDR)
+        .build()
+        .unwrap_or_else(|err| panic!("{}", err));
     lapic
 }));
 
-pub static IOAPIC: Spinlock<Lazy<RawSpinlock, IoApic>> = Spinlock::new(Lazy::new(||{
+pub static IOAPIC: Spinlock<Lazy<RawSpinlock, IoApic>> = Spinlock::new(Lazy::new(|| {
     todo!() //TODO implement IOAPIC
 }));
 
@@ -92,9 +95,7 @@ extern "x86-interrupt" fn page_fault_handler(
 extern "x86-interrupt" fn timer_interrupt_handler(_stack_frame: InterruptStackFrame) {
     // print!(".");
 
-    unsafe {
-        LAPIC.lock().end_of_interrupt()
-    }
+    unsafe { LAPIC.lock().end_of_interrupt() }
 }
 
 extern "x86-interrupt" fn keyboard_interrupt_handler(_stack_frame: InterruptStackFrame) {
@@ -119,20 +120,18 @@ extern "x86-interrupt" fn keyboard_interrupt_handler(_stack_frame: InterruptStac
             match key {
                 DecodedKey::Unicode(char) => {
                     print!("{}", char);
-                },
+                }
                 DecodedKey::RawKey(raw) => {
                     print!("{:?}", raw)
-                },
+                }
             }
         }
     }
 
-    unsafe {
-        LAPIC.lock().end_of_interrupt()
-    }
+    unsafe { LAPIC.lock().end_of_interrupt() }
 }
 
 extern "x86-interrupt" fn mouse_interrupt_handler(_stack_frame: InterruptStackFrame) {
     print!("°");
-    //TODO implement mouse input   
+    //TODO implement mouse input
 }

@@ -9,7 +9,11 @@
 extern crate alloc;
 
 use bootloader_api::BootInfo;
-use kernel::{allocator, memory::{self, BootInfoFrameAllocator}, println};
+use kernel::{
+    allocator,
+    memory::{self, BootInfoFrameAllocator},
+    println,
+};
 use x86_64::VirtAddr;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -30,7 +34,8 @@ pub fn exit_qemu(exit_code: QemuExitCode) {
 
 pub static BOOTLOADER_CFG: bootloader_api::BootloaderConfig = {
     let mut config = bootloader_api::BootloaderConfig::new_default();
-    config.mappings.physical_memory = Some(bootloader_api::config::Mapping::FixedAddress(0xF0000000));
+    config.mappings.physical_memory =
+        Some(bootloader_api::config::Mapping::FixedAddress(0xF0000000));
     // config.kernel_stack_size = 100 * 1024;
     config
 };
@@ -38,7 +43,6 @@ pub static BOOTLOADER_CFG: bootloader_api::BootloaderConfig = {
 bootloader_api::entry_point!(kmain, config = &BOOTLOADER_CFG);
 
 fn kmain(boot_info: &'static mut bootloader_api::BootInfo) -> ! {
-
     // Create a BootInfo pointer for the init function to use
     let bi_ptr: *mut BootInfo = &mut *boot_info;
 
@@ -49,9 +53,7 @@ fn kmain(boot_info: &'static mut bootloader_api::BootInfo) -> ! {
 
     let phys_mem_offset = VirtAddr::new(boot_info.physical_memory_offset.take().unwrap());
     let mut mapper = unsafe { memory::init(phys_mem_offset) };
-    let mut frame_alloc = unsafe {
-        BootInfoFrameAllocator::init(&boot_info.memory_regions)
-    };
+    let mut frame_alloc = unsafe { BootInfoFrameAllocator::init(&boot_info.memory_regions) };
 
     allocator::init_heap(&mut mapper, &mut frame_alloc).expect("heap initialization failed");
 
