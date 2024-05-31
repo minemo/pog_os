@@ -30,7 +30,7 @@ pub fn exit_qemu(exit_code: QemuExitCode) {
 
 pub static BOOTLOADER_CFG: bootloader_api::BootloaderConfig = {
     let mut config = bootloader_api::BootloaderConfig::new_default();
-    config.mappings.physical_memory = Some(bootloader_api::config::Mapping::Dynamic);
+    config.mappings.physical_memory = Some(bootloader_api::config::Mapping::FixedAddress(0xF0000000));
     // config.kernel_stack_size = 100 * 1024;
     config
 };

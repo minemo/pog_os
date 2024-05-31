@@ -1,15 +1,14 @@
 use crate::{gdt, hlt_loop, print, println};
 use generic_once_cell::Lazy;
-use pic8259::ChainedPics;
-use x2apic::lapic::{LocalApic, LocalApicBuilder, xapic_base};
+use x2apic::lapic::{LocalApic, LocalApicBuilder};
 use spinning_top::{RawSpinlock, Spinlock};
 use x86_64::structures::idt::{InterruptDescriptorTable, InterruptStackFrame, PageFaultErrorCode};
 
 pub const PIC_1_OFFSET: u8 = 32;
 pub const PIC_2_OFFSET: u8 = PIC_1_OFFSET + 8;
 
-pub static PICS: Spinlock<ChainedPics> =
-    Spinlock::new(unsafe { ChainedPics::new(PIC_1_OFFSET, PIC_2_OFFSET) });
+pub const APIC_PHYS_ADDR: u64 = 0xFEE00000;
+pub const APIC_VIRT_ADDR: u64 = 0xF0000000 + APIC_PHYS_ADDR;
 
 #[derive(Debug, Clone, Copy)]
 #[repr(u8)]
@@ -23,29 +22,17 @@ impl InterruptIndex {
         self as u8
     }
 
-    fn as_usize(self) -> usize {
+    fn _as_usize(self) -> usize {
         self as usize
     }
 }
 
-pub static APIC_PHYS_ADDR: Lazy<RawSpinlock, u64> = Lazy::new(||{
-    unsafe {
-        xapic_base()
-    }
-});
-
-pub static APIC_VIRT_ADDR: Lazy<RawSpinlock, u64> = Lazy::new(||{
-    unsafe {
-        xapic_base()
-    }
-});
-
 pub static LAPIC: Spinlock<Lazy<RawSpinlock,LocalApic>> = Spinlock::new(Lazy::new(||{
     let lapic = LocalApicBuilder::new()
-                                .timer_vector(InterruptIndex::Timer.as_usize())
-                                .error_vector(InterruptIndex::Timer.as_usize() + 4)
-                                .spurious_vector(InterruptIndex::Timer.as_usize() + 5)
-                                .set_xapic_base(0x1B)
+                                .timer_vector(0x20)
+                                .error_vector(0x20)
+                                .spurious_vector(0x2F)
+                                .set_xapic_base(APIC_VIRT_ADDR)
                                 .build()
                                 .unwrap_or_else(|err|{panic!("{}",err)});
     lapic
@@ -100,8 +87,7 @@ extern "x86-interrupt" fn timer_interrupt_handler(_stack_frame: InterruptStackFr
     // print!(".");
 
     unsafe {
-        PICS.lock()
-            .notify_end_of_interrupt(InterruptIndex::Timer.as_u8())
+        LAPIC.lock().end_of_interrupt()
     }
 }
 
@@ -136,8 +122,7 @@ extern "x86-interrupt" fn keyboard_interrupt_handler(_stack_frame: InterruptStac
     }
 
     unsafe {
-        PICS.lock()
-            .notify_end_of_interrupt(InterruptIndex::Keyboard.as_u8());
+        LAPIC.lock().end_of_interrupt()
     }
 }
 

@@ -22,14 +22,11 @@ pub fn init(boot_info: &'static mut bootloader_api::BootInfo) {
     // Set up initial framebuffer logic
     framebuffer::init(boot_info);
 
-    //TODO find APCI (not APIC) address using RSDP
-
     // Init gdt and idt
     gdt::init();
     interrupts::init_idt();
     unsafe {
-        // interrupts::PICS.lock().initialize();
-        interrupts::LAPIC.lock().enable(); //TODO check if this actually works
+        interrupts::LAPIC.lock().enable();
     };
     x86_64::instructions::interrupts::enable();
 }
