@@ -3,7 +3,6 @@
 
 extern crate alloc;
 
-pub mod apic;
 pub mod framebuffer;
 pub mod gdt;
 pub mod interrupts;
