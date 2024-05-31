@@ -1,6 +1,6 @@
 use crate::{gdt, hlt_loop, print, println};
 use generic_once_cell::Lazy;
-use x2apic::lapic::{LocalApic, LocalApicBuilder};
+use x2apic::{ioapic::IoApic, lapic::{LocalApic, LocalApicBuilder}};
 use spinning_top::{RawSpinlock, Spinlock};
 use x86_64::structures::idt::{InterruptDescriptorTable, InterruptStackFrame, PageFaultErrorCode};
 
@@ -15,6 +15,7 @@ pub const APIC_VIRT_ADDR: u64 = 0xF0000000 + APIC_PHYS_ADDR;
 pub enum InterruptIndex {
     Timer = PIC_1_OFFSET,
     Keyboard,
+    Mouse = PIC_1_OFFSET + 12,
 }
 
 impl InterruptIndex {
@@ -38,6 +39,10 @@ pub static LAPIC: Spinlock<Lazy<RawSpinlock,LocalApic>> = Spinlock::new(Lazy::ne
     lapic
 }));
 
+pub static IOAPIC: Spinlock<Lazy<RawSpinlock, IoApic>> = Spinlock::new(Lazy::new(||{
+    todo!() //TODO implement IOAPIC
+}));
+
 static IDT: Lazy<RawSpinlock, InterruptDescriptorTable> = Lazy::new(|| {
     let mut idt = InterruptDescriptorTable::new();
     idt.breakpoint.set_handler_fn(breakpoint_handler);
@@ -48,6 +53,7 @@ static IDT: Lazy<RawSpinlock, InterruptDescriptorTable> = Lazy::new(|| {
     }
     idt[InterruptIndex::Timer.as_u8()].set_handler_fn(timer_interrupt_handler);
     idt[InterruptIndex::Keyboard.as_u8()].set_handler_fn(keyboard_interrupt_handler);
+    idt[InterruptIndex::Mouse.as_u8()].set_handler_fn(mouse_interrupt_handler);
     idt.page_fault.set_handler_fn(page_fault_handler);
     idt
 });
@@ -126,6 +132,7 @@ extern "x86-interrupt" fn keyboard_interrupt_handler(_stack_frame: InterruptStac
     }
 }
 
-extern "x86-interrupt" fn _mouse_interrupt_handler(_stack_frame: InterruptStackFrame) {
+extern "x86-interrupt" fn mouse_interrupt_handler(_stack_frame: InterruptStackFrame) {
+    print!("°");
     //TODO implement mouse input   
 }
