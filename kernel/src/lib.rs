@@ -3,14 +3,13 @@
 
 extern crate alloc;
 
-pub mod apic;
+pub mod allocator;
 pub mod framebuffer;
 pub mod gdt;
+pub mod input;
 pub mod interrupts;
 pub mod memory;
 pub mod serial;
-pub mod allocator;
-pub mod input;
 
 pub fn hlt_loop() -> ! {
     loop {
@@ -22,13 +21,11 @@ pub fn init(boot_info: &'static mut bootloader_api::BootInfo) {
     // Set up initial framebuffer logic
     framebuffer::init(boot_info);
 
-    //TODO find APCI (not APIC) address using RSDP
-
     // Init gdt and idt
     gdt::init();
     interrupts::init_idt();
     unsafe {
-        interrupts::PICS.lock().initialize();
+        interrupts::LAPIC.lock().enable();
     };
     x86_64::instructions::interrupts::enable();
 }
