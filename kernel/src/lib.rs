@@ -1,6 +1,10 @@
 #![no_std]
 #![feature(abi_x86_interrupt)]
 
+use alloc::vec;
+use interrupts::InterruptIndex;
+use x2apic::ioapic::{IrqFlags, IrqMode, RedirectionTableEntry};
+
 extern crate alloc;
 
 pub mod allocator;
@@ -25,7 +29,7 @@ pub fn init(boot_info: &'static mut bootloader_api::BootInfo) {
     gdt::init();
     interrupts::init_idt();
     unsafe {
-        interrupts::LAPIC.lock().enable();
+        interrupts::init_apic();
     };
     x86_64::instructions::interrupts::enable();
 }

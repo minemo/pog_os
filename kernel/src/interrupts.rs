@@ -1,24 +1,26 @@
 use crate::{gdt, hlt_loop, print, println};
 use generic_once_cell::Lazy;
+use pc_keyboard::KeyCode;
 use spinning_top::{RawSpinlock, Spinlock};
 use x2apic::{
-    ioapic::IoApic,
+    ioapic::{IoApic, IrqFlags, IrqMode, RedirectionTableEntry},
     lapic::{LocalApic, LocalApicBuilder},
 };
 use x86_64::structures::idt::{InterruptDescriptorTable, InterruptStackFrame, PageFaultErrorCode};
 
-pub const PIC_1_OFFSET: u8 = 32;
-pub const PIC_2_OFFSET: u8 = PIC_1_OFFSET + 8;
+pub const LAPIC_PHYS_ADDR: u64 = 0xFEE00000;
+pub const LAPIC_VIRT_ADDR: u64 = 0xF0000000 + LAPIC_PHYS_ADDR;
+pub const IOAPIC_PHYS_ADDR: u64 = 0xFEC00000;
+pub const IOAPIC_VIRT_ADDR: u64 = 0xF0000000 + IOAPIC_PHYS_ADDR;
 
-pub const APIC_PHYS_ADDR: u64 = 0xFEE00000;
-pub const APIC_VIRT_ADDR: u64 = 0xF0000000 + APIC_PHYS_ADDR;
+pub const INTERRUPT_BASE: u8 = 0x20;
 
 #[derive(Debug, Clone, Copy)]
 #[repr(u8)]
 pub enum InterruptIndex {
-    Timer = PIC_1_OFFSET,
+    Timer = INTERRUPT_BASE,
     Keyboard,
-    Mouse = PIC_1_OFFSET + 12,
+    Mouse = INTERRUPT_BASE+12,
 }
 
 impl InterruptIndex {
@@ -26,24 +28,27 @@ impl InterruptIndex {
         self as u8
     }
 
-    fn _as_usize(self) -> usize {
+    fn as_usize(self) -> usize {
         self as usize
     }
 }
 
 pub static LAPIC: Spinlock<Lazy<RawSpinlock, LocalApic>> = Spinlock::new(Lazy::new(|| {
     let lapic = LocalApicBuilder::new()
-        .timer_vector(0x20)
-        .error_vector(0x20)
-        .spurious_vector(0x2F)
-        .set_xapic_base(APIC_VIRT_ADDR)
+        .timer_vector(InterruptIndex::Timer.as_usize())
+        .error_vector(0x7)
+        .spurious_vector(0xFF)
+        .set_xapic_base(LAPIC_VIRT_ADDR)
         .build()
         .unwrap_or_else(|err| panic!("{}", err));
     lapic
 }));
 
 pub static IOAPIC: Spinlock<Lazy<RawSpinlock, IoApic>> = Spinlock::new(Lazy::new(|| {
-    todo!() //TODO implement IOAPIC
+    unsafe {
+        let ioapic = IoApic::new(IOAPIC_VIRT_ADDR);
+        ioapic
+    }
 }));
 
 static IDT: Lazy<RawSpinlock, InterruptDescriptorTable> = Lazy::new(|| {
@@ -63,6 +68,24 @@ static IDT: Lazy<RawSpinlock, InterruptDescriptorTable> = Lazy::new(|| {
 
 pub fn init_idt() {
     IDT.load();
+}
+
+pub unsafe fn redirect_interrupt(irq_idx: InterruptIndex, table_idx:u8, dest: u8, flags: IrqFlags) {
+    let mut new_entry = RedirectionTableEntry::default();
+    new_entry.set_mode(IrqMode::Fixed);
+    new_entry.set_flags(flags);
+    new_entry.set_dest(dest);
+    new_entry.set_vector(irq_idx.as_u8());
+    IOAPIC.lock().set_table_entry(table_idx, new_entry);
+    IOAPIC.lock().enable_irq(table_idx);
+}
+
+pub unsafe fn init_apic() {
+    LAPIC.lock().enable();
+    IOAPIC.lock().init(32);
+
+    redirect_interrupt(InterruptIndex::Keyboard, 1, 0, IrqFlags::empty());
+    redirect_interrupt(InterruptIndex::Mouse, 2, 0, IrqFlags::MASKED);
 }
 
 extern "x86-interrupt" fn breakpoint_handler(stack_frame: InterruptStackFrame) {
@@ -120,9 +143,12 @@ extern "x86-interrupt" fn keyboard_interrupt_handler(_stack_frame: InterruptStac
             match key {
                 DecodedKey::Unicode(char) => {
                     print!("{}", char);
-                }
-                DecodedKey::RawKey(raw) => {
-                    print!("{:?}", raw)
+                },
+                DecodedKey::RawKey(KeyCode::Return) => {
+                    print!("\n");
+                },
+                DecodedKey::RawKey(_raw) => {
+                    //TODO use textbuffer to access/modify input
                 }
             }
         }
@@ -132,6 +158,7 @@ extern "x86-interrupt" fn keyboard_interrupt_handler(_stack_frame: InterruptStac
 }
 
 extern "x86-interrupt" fn mouse_interrupt_handler(_stack_frame: InterruptStackFrame) {
-    print!("°");
+    // print!("#");
     //TODO implement mouse input
+    unsafe { LAPIC.lock().end_of_interrupt() }
 }

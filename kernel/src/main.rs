@@ -49,13 +49,13 @@ fn kmain(boot_info: &'static mut bootloader_api::BootInfo) -> ! {
     // Init kernel
     kernel::init(unsafe { &mut *bi_ptr });
 
-    println!("Hello World{}", "!");
-
     let phys_mem_offset = VirtAddr::new(boot_info.physical_memory_offset.take().unwrap());
     let mut mapper = unsafe { memory::init(phys_mem_offset) };
     let mut frame_alloc = unsafe { BootInfoFrameAllocator::init(&boot_info.memory_regions) };
 
     allocator::init_heap(&mut mapper, &mut frame_alloc).expect("heap initialization failed");
+
+    println!("Hello World{}", "!");
 
     kernel::hlt_loop();
 }
