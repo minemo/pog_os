@@ -1,7 +1,5 @@
-use crate::{gdt, hlt_loop, print, println};
-use generic_once_cell::Lazy;
-use pc_keyboard::KeyCode;
-use spinning_top::{RawSpinlock, Spinlock};
+use crate::{gdt, hlt_loop, println};
+use spin::{lazy::Lazy,mutex::Mutex};
 use x2apic::{
     ioapic::{IoApic, IrqFlags, IrqMode, RedirectionTableEntry},
     lapic::{LocalApic, LocalApicBuilder},
@@ -33,7 +31,7 @@ impl InterruptIndex {
     }
 }
 
-pub static LAPIC: Spinlock<Lazy<RawSpinlock, LocalApic>> = Spinlock::new(Lazy::new(|| {
+pub static LAPIC: Lazy<Mutex<LocalApic>> = Lazy::new(|| {
     let lapic = LocalApicBuilder::new()
         .timer_vector(InterruptIndex::Timer.as_usize())
         .error_vector(0x7)
@@ -41,15 +39,15 @@ pub static LAPIC: Spinlock<Lazy<RawSpinlock, LocalApic>> = Spinlock::new(Lazy::n
         .set_xapic_base(LAPIC_VIRT_ADDR)
         .build()
         .unwrap_or_else(|err| panic!("{}", err));
-    lapic
-}));
+    Mutex::new(lapic)
+});
 
-pub static IOAPIC: Spinlock<Lazy<RawSpinlock, IoApic>> = Spinlock::new(Lazy::new(|| unsafe {
+pub static IOAPIC: Lazy<Mutex<IoApic>> = Lazy::new(|| unsafe {
     let ioapic = IoApic::new(IOAPIC_VIRT_ADDR);
-    ioapic
-}));
+    Mutex::new(ioapic)
+});
 
-static IDT: Lazy<RawSpinlock, InterruptDescriptorTable> = Lazy::new(|| {
+static IDT: Lazy<InterruptDescriptorTable> = Lazy::new(|| {
     let mut idt = InterruptDescriptorTable::new();
     idt.breakpoint.set_handler_fn(breakpoint_handler);
     unsafe {
@@ -125,37 +123,11 @@ extern "x86-interrupt" fn timer_interrupt_handler(_stack_frame: InterruptStackFr
 }
 
 extern "x86-interrupt" fn keyboard_interrupt_handler(_stack_frame: InterruptStackFrame) {
-    use pc_keyboard::{layouts, DecodedKey, HandleControl, Keyboard, ScancodeSet1};
     use x86_64::instructions::port::Port;
 
-    static KEYBOARD: Lazy<RawSpinlock, Spinlock<Keyboard<layouts::Us104Key, ScancodeSet1>>> =
-        Lazy::new(|| {
-            Spinlock::new(Keyboard::new(
-                ScancodeSet1::new(),
-                layouts::Us104Key,
-                HandleControl::Ignore,
-            ))
-        });
-
-    let mut keyboard = KEYBOARD.lock();
     let mut port = Port::new(0x60);
-
     let scancode: u8 = unsafe { port.read() };
-    if let Ok(Some(event)) = keyboard.add_byte(scancode) {
-        if let Some(key) = keyboard.process_keyevent(event) {
-            match key {
-                DecodedKey::Unicode(char) => {
-                    print!("{}", char);
-                }
-                DecodedKey::RawKey(KeyCode::Return) => {
-                    print!("\n");
-                }
-                DecodedKey::RawKey(_raw) => {
-                    //TODO use textbuffer to access/modify input
-                }
-            }
-        }
-    }
+    crate::task::keyboard::add_scancode(scancode);
 
     unsafe { LAPIC.lock().end_of_interrupt() }
 }
