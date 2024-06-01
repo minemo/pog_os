@@ -20,7 +20,7 @@ pub const INTERRUPT_BASE: u8 = 0x20;
 pub enum InterruptIndex {
     Timer = INTERRUPT_BASE,
     Keyboard,
-    Mouse = INTERRUPT_BASE+12,
+    Mouse = INTERRUPT_BASE + 12,
 }
 
 impl InterruptIndex {
@@ -44,11 +44,9 @@ pub static LAPIC: Spinlock<Lazy<RawSpinlock, LocalApic>> = Spinlock::new(Lazy::n
     lapic
 }));
 
-pub static IOAPIC: Spinlock<Lazy<RawSpinlock, IoApic>> = Spinlock::new(Lazy::new(|| {
-    unsafe {
-        let ioapic = IoApic::new(IOAPIC_VIRT_ADDR);
-        ioapic
-    }
+pub static IOAPIC: Spinlock<Lazy<RawSpinlock, IoApic>> = Spinlock::new(Lazy::new(|| unsafe {
+    let ioapic = IoApic::new(IOAPIC_VIRT_ADDR);
+    ioapic
 }));
 
 static IDT: Lazy<RawSpinlock, InterruptDescriptorTable> = Lazy::new(|| {
@@ -70,7 +68,12 @@ pub fn init_idt() {
     IDT.load();
 }
 
-pub unsafe fn redirect_interrupt(irq_idx: InterruptIndex, table_idx:u8, dest: u8, flags: IrqFlags) {
+pub unsafe fn redirect_interrupt(
+    irq_idx: InterruptIndex,
+    table_idx: u8,
+    dest: u8,
+    flags: IrqFlags,
+) {
     let mut new_entry = RedirectionTableEntry::default();
     new_entry.set_mode(IrqMode::Fixed);
     new_entry.set_flags(flags);
@@ -143,10 +146,10 @@ extern "x86-interrupt" fn keyboard_interrupt_handler(_stack_frame: InterruptStac
             match key {
                 DecodedKey::Unicode(char) => {
                     print!("{}", char);
-                },
+                }
                 DecodedKey::RawKey(KeyCode::Return) => {
                     print!("\n");
-                },
+                }
                 DecodedKey::RawKey(_raw) => {
                     //TODO use textbuffer to access/modify input
                 }

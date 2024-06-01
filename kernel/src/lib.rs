@@ -1,10 +1,6 @@
 #![no_std]
 #![feature(abi_x86_interrupt)]
 
-use alloc::vec;
-use interrupts::InterruptIndex;
-use x2apic::ioapic::{IrqFlags, IrqMode, RedirectionTableEntry};
-
 extern crate alloc;
 
 pub mod allocator;
