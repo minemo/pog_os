@@ -29,6 +29,7 @@ fn main() {
             // cmd.arg("-drive").arg(format!("format=raw,file={bios_path}"));
 
             // set device specs
+            cmd.arg("-cpu").arg("phenom");
             cmd.arg("-m").arg("4G");
 
             // add ISA debug OS exit

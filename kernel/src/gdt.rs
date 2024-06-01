@@ -1,7 +1,6 @@
 use core::ptr::addr_of;
 
-use generic_once_cell::Lazy;
-use spinning_top::RawSpinlock;
+use spin::{lazy::Lazy,mutex::Mutex};
 use x86_64::instructions::tables::load_tss;
 use x86_64::structures::gdt::{Descriptor, GlobalDescriptorTable, SegmentSelector};
 use x86_64::structures::tss::TaskStateSegment;
@@ -15,7 +14,7 @@ struct Selectors {
 
 pub const DOUBLE_FAULT_IST_INDEX: u16 = 0;
 
-static TSS: Lazy<RawSpinlock, TaskStateSegment> = Lazy::new(|| {
+static TSS: Lazy<TaskStateSegment> = Lazy::new(|| {
     let mut tss = TaskStateSegment::new();
     tss.interrupt_stack_table[DOUBLE_FAULT_IST_INDEX as usize] = {
         const STCK_SIZE: usize = 5 * 4096;
@@ -28,7 +27,7 @@ static TSS: Lazy<RawSpinlock, TaskStateSegment> = Lazy::new(|| {
     tss
 });
 
-static GDT: Lazy<RawSpinlock, (GlobalDescriptorTable, Selectors)> = Lazy::new(|| {
+static GDT: Lazy<(GlobalDescriptorTable, Selectors)> = Lazy::new(|| {
     // let prev_gdt_ptr = sgdt();
     // println!("Previous GDT: (Ptr: 0x{:x},Size:{})", prev_gdt_ptr.base.as_u64(),prev_gdt_ptr.limit);
     let mut gdt = GlobalDescriptorTable::new();

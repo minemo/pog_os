@@ -12,7 +12,7 @@ use bootloader_api::BootInfo;
 use kernel::{
     allocator,
     memory::{self, BootInfoFrameAllocator},
-    println,
+    println, task::{simple_executor::SimpleExecutor, Task},
 };
 use x86_64::VirtAddr;
 
@@ -52,10 +52,12 @@ fn kmain(boot_info: &'static mut bootloader_api::BootInfo) -> ! {
     let phys_mem_offset = VirtAddr::new(boot_info.physical_memory_offset.take().unwrap());
     let mut mapper = unsafe { memory::init(phys_mem_offset) };
     let mut frame_alloc = unsafe { BootInfoFrameAllocator::init(&boot_info.memory_regions) };
-
     allocator::init_heap(&mut mapper, &mut frame_alloc).expect("heap initialization failed");
 
     println!("Hello World{}", "!");
+
+    let mut executor = SimpleExecutor::new();
+    executor.run();
 
     kernel::hlt_loop();
 }

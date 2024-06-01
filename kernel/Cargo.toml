@@ -8,12 +8,17 @@ authors = ["WorksByM <wittki56@gmail.com>"]
 acpi = "5.0.0"
 bootloader_api = "0.11.7"
 noto-sans-mono-bitmap = "0.3.0"
-volatile = "0.5.1"
+volatile = "0.5.4"
 x86_64 = "0.15.1"
 uart_16550 = "0.3.0"
-spinning_top = "0.3.0"
+spin = {version="0.9.8",features=["mutex","spin_mutex","once","lazy","lock_api"]}
 generic_once_cell = "0.1.1"
-pic8259 = "0.11.0"
+lock_api = "0.4.12"
 pc-keyboard = "0.7.0"
 linked_list_allocator = "0.10.5"
 x2apic = "0.4.3"
+
+[dependencies.crossbeam-queue]
+version = "0.3.11"
+default-features = false
+features = ["alloc"]
