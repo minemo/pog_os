@@ -11,6 +11,75 @@ const LINE_SPACING: usize = 2;
 const LETTER_SPACING: usize = 0;
 const BORDER_PADDING: usize = 1;
 
+pub enum PixelValue {
+    Mono(u8),
+    Rgb(u8, u8, u8),
+    Bgr(u8, u8, u8),
+}
+
+impl Into<u8> for PixelValue {
+    fn into(self) -> u8 {
+        match self {
+            PixelValue::Mono(val) => return val,
+            PixelValue::Rgb(r, g, b) => {
+                return (r / 5) + ((g / 2) + (g / 5)) + (b / 14);
+            }
+            PixelValue::Bgr(b, g, r) => {
+                return (r / 5) + ((g / 2) + (g / 5)) + (b / 14);
+            }
+        }
+    }
+}
+
+impl PixelValue {
+    pub fn to_mono(&self) -> PixelValue {
+        match self {
+            PixelValue::Mono(val) => return PixelValue::Mono(*val),
+            PixelValue::Rgb(r, g, b) => {
+                return PixelValue::Mono(((r << 1) + r + (g << 2) + b) >> 3);
+            }
+            PixelValue::Bgr(b, g, r) => {
+                return PixelValue::Mono(((r << 1) + r + (g << 2) + b) >> 3);
+            }
+        }
+    }
+
+    pub fn to_rgb(&self) -> PixelValue {
+        match self {
+            PixelValue::Mono(val) => {
+                return PixelValue::Rgb(*val, *val, *val);
+            }
+            PixelValue::Rgb(r, g, b) => return PixelValue::Rgb(*r, *g, *b),
+            PixelValue::Bgr(b, g, r) => return PixelValue::Rgb(*r, *g, *b),
+        }
+    }
+
+    pub fn to_bgr(&self) -> PixelValue {
+        match self {
+            PixelValue::Mono(val) => {
+                return PixelValue::Bgr(*val, *val, *val);
+            }
+            PixelValue::Rgb(r, g, b) => return PixelValue::Bgr(*b, *g, *r),
+            PixelValue::Bgr(b, g, r) => return PixelValue::Bgr(*b, *g, *r),
+        }
+    }
+
+    pub fn to_array(&self, thresh: bool) -> [u8; 4] {
+        match self {
+            PixelValue::Mono(val) => {
+                if thresh {
+                    let t = if *val > 127 { 0xf } else { 0 };
+                    return [t, t, t, 4];
+                } else {
+                    return [*val, *val, *val, 0];
+                }
+            }
+            PixelValue::Rgb(r, g, b) => return [*r, *g, *b, 0],
+            PixelValue::Bgr(b, g, r) => return [*b, *g, *r, 0],
+        }
+    }
+}
+
 /// Constants for the usage of the [`noto_sans_mono_bitmap`] crate.
 mod font_constants {
     use super::*;
@@ -78,6 +147,20 @@ impl FrameBufferWriter {
         self.info.height
     }
 
+    fn get_color(&mut self, value: PixelValue, thresholding: bool) -> [u8; 4] {
+        match self.info.pixel_format {
+            PixelFormat::Rgb => value.to_rgb().to_array(thresholding),
+            PixelFormat::Bgr => value.to_bgr().to_array(thresholding),
+            PixelFormat::U8 => value.to_mono().to_array(thresholding),
+            other => {
+                // set a supported (but invalid) pixel format before panicking to avoid a double
+                // panic; it might not be readable though
+                self.info.pixel_format = PixelFormat::Rgb;
+                panic!("pixel format {:?} not supported in logger", other)
+            }
+        }
+    }
+
     fn write_char(&mut self, c: char) {
         match c {
             '\n' => self.newline(),
@@ -100,30 +183,34 @@ impl FrameBufferWriter {
     fn write_rendered_char(&mut self, rendered_char: RasterizedChar) {
         for (y, row) in rendered_char.raster().iter().enumerate() {
             for (x, byte) in row.iter().enumerate() {
-                self.write_pixel(self.x_pos + x, self.y_pos + y, *byte);
+                self.write_pixel(self.x_pos + x, self.y_pos + y, PixelValue::Mono(*byte));
             }
         }
         self.x_pos += rendered_char.width() + LETTER_SPACING;
     }
 
-    pub fn write_pixel(&mut self, x: usize, y: usize, intensity: u8) {
+    pub fn write_pixel(&mut self, x: usize, y: usize, val: PixelValue) {
         let pixel_offset = y * self.info.stride + x;
-        let color = match self.info.pixel_format {
-            PixelFormat::Rgb => [intensity, intensity, intensity / 2, 0],
-            PixelFormat::Bgr => [intensity / 2, intensity, intensity, 0],
-            PixelFormat::U8 => [if intensity > 200 { 0xf } else { 0 }, 0, 0, 0],
-            other => {
-                // set a supported (but invalid) pixel format before panicking to avoid a double
-                // panic; it might not be readable though
-                self.info.pixel_format = PixelFormat::Rgb;
-                panic!("pixel format {:?} not supported in logger", other)
-            }
-        };
         let bytes_per_pixel = self.info.bytes_per_pixel;
+        let color = self.get_color(val, false);
         let byte_offset = pixel_offset * bytes_per_pixel;
         self.framebuffer[byte_offset..(byte_offset + bytes_per_pixel)]
             .copy_from_slice(&color[..bytes_per_pixel]);
         let _ = unsafe { ptr::read_volatile(&self.framebuffer[byte_offset]) };
+    }
+
+    pub fn fill_rect(&mut self, x: usize, y: usize, w: usize, h: usize, val: PixelValue) {
+        let bytes_per_pixel = self.info.bytes_per_pixel;
+        let color = self.get_color(val, false);
+        for i in x..w {
+            for j in y..h {
+                let px_offset = j * self.info.stride + i;
+                let byte_offset = px_offset * bytes_per_pixel;
+                self.framebuffer[byte_offset..(byte_offset + bytes_per_pixel)]
+                    .copy_from_slice(&color[..bytes_per_pixel]);
+                let _ = unsafe { ptr::read_volatile(&self.framebuffer[byte_offset]) };
+            }
+        }
     }
 }
 
@@ -170,11 +257,4 @@ macro_rules! print {
 macro_rules! println {
     () => ($crate::print!("\n"));
     ($($arg:tt)*) => ($crate::print!("{}\n", format_args!($($arg)*)));
-}
-
-pub fn draw_pixel(x: usize, y: usize, intensity: u8) {
-    use x86_64::instructions::interrupts;
-    interrupts::without_interrupts(|| {
-        FBWRITER.get().unwrap().lock().write_pixel(x, y, intensity);
-    });
 }
