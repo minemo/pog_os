@@ -12,7 +12,7 @@ use bootloader_api::BootInfo;
 use kernel::{
     allocator,
     memory::{self, BootInfoFrameAllocator},
-    println, task::{keyboard, simple_executor::SimpleExecutor, Task},
+    println, task::{executor::Executor, keyboard, Task},
 };
 use x86_64::VirtAddr;
 
@@ -35,7 +35,7 @@ pub fn exit_qemu(exit_code: QemuExitCode) {
 pub static BOOTLOADER_CFG: bootloader_api::BootloaderConfig = {
     let mut config = bootloader_api::BootloaderConfig::new_default();
     config.mappings.physical_memory =
-        Some(bootloader_api::config::Mapping::FixedAddress(0xF0000000));
+        Some(bootloader_api::config::Mapping::FixedAddress(0xF0000000)); //TODO make this accessible to other modules
     // config.kernel_stack_size = 100 * 1024;
     config
 };
@@ -56,11 +56,9 @@ fn kmain(boot_info: &'static mut bootloader_api::BootInfo) -> ! {
 
     println!("Hello World{}", "!");
 
-    let mut executor = SimpleExecutor::new();
+    let mut executor = Executor::new();
     executor.spawn(Task::new(keyboard::print_keys()));
     executor.run();
-
-    kernel::hlt_loop();
 }
 
 // handles panic (duh)
