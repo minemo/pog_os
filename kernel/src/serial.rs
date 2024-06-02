@@ -1,11 +1,10 @@
-use generic_once_cell::Lazy;
-use spinning_top::{RawSpinlock, Spinlock};
+use spin::{lazy::Lazy,mutex::Mutex};
 use uart_16550::SerialPort;
 
-pub static SERIAL1: Lazy<RawSpinlock, Spinlock<SerialPort>> = Lazy::new(|| {
+pub static SERIAL1: Lazy<Mutex<SerialPort>> = Lazy::new(|| {
     let mut serial_port = unsafe { SerialPort::new(0x3F8) };
     serial_port.init();
-    Spinlock::new(serial_port)
+    Mutex::new(serial_port)
 });
 
 #[doc(hidden)]

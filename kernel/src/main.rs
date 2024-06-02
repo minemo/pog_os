@@ -12,7 +12,7 @@ use bootloader_api::BootInfo;
 use kernel::{
     allocator,
     memory::{self, BootInfoFrameAllocator},
-    println,
+    println, task::{executor::Executor, keyboard, Task},
 };
 use x86_64::VirtAddr;
 
@@ -35,7 +35,7 @@ pub fn exit_qemu(exit_code: QemuExitCode) {
 pub static BOOTLOADER_CFG: bootloader_api::BootloaderConfig = {
     let mut config = bootloader_api::BootloaderConfig::new_default();
     config.mappings.physical_memory =
-        Some(bootloader_api::config::Mapping::FixedAddress(0xF0000000));
+        Some(bootloader_api::config::Mapping::FixedAddress(0xF0000000)); //TODO make this accessible to other modules
     // config.kernel_stack_size = 100 * 1024;
     config
 };
@@ -52,12 +52,13 @@ fn kmain(boot_info: &'static mut bootloader_api::BootInfo) -> ! {
     let phys_mem_offset = VirtAddr::new(boot_info.physical_memory_offset.take().unwrap());
     let mut mapper = unsafe { memory::init(phys_mem_offset) };
     let mut frame_alloc = unsafe { BootInfoFrameAllocator::init(&boot_info.memory_regions) };
-
     allocator::init_heap(&mut mapper, &mut frame_alloc).expect("heap initialization failed");
 
     println!("Hello World{}", "!");
 
-    kernel::hlt_loop();
+    let mut executor = Executor::new();
+    executor.spawn(Task::new(keyboard::print_keys()));
+    executor.run();
 }
 
 // handles panic (duh)
