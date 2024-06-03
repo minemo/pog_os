@@ -8,19 +8,51 @@
 
 extern crate alloc;
 
+use core::ptr::NonNull;
+
+use acpi::{AcpiHandler, AcpiTables, PhysicalMapping};
+use alloc::boxed::Box;
+use aml::AmlContext;
 use bootloader_api::BootInfo;
 use kernel::{
     allocator,
     memory::{self, BootInfoFrameAllocator},
-    println, task::{executor::Executor, keyboard, Task},
+    println,
+    task::{executor::Executor, keyboard, Task},
 };
 use x86_64::VirtAddr;
+
+pub const VIRTUAL_OFFSET: usize = 0xF0000000;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[repr(u32)]
 pub enum QemuExitCode {
     Success = 0x10,
     Failed = 0x11,
+}
+
+#[derive(Debug, Clone, Copy)]
+struct TableHandler {}
+
+impl AcpiHandler for TableHandler {
+    unsafe fn map_physical_region<T>(
+        &self,
+        physical_address: usize,
+        size: usize,
+    ) -> acpi::PhysicalMapping<Self, T> {
+        let mapping = PhysicalMapping::<Self, T>::new(
+            physical_address,
+            NonNull::<T>::new((VIRTUAL_OFFSET + physical_address) as *mut T).unwrap(),
+            size,
+            size,
+            *self,
+        );
+        mapping
+    }
+
+    fn unmap_physical_region<T>(_region: &acpi::PhysicalMapping<Self, T>) {
+        return;
+    }
 }
 
 pub fn exit_qemu(exit_code: QemuExitCode) {
@@ -34,9 +66,10 @@ pub fn exit_qemu(exit_code: QemuExitCode) {
 
 pub static BOOTLOADER_CFG: bootloader_api::BootloaderConfig = {
     let mut config = bootloader_api::BootloaderConfig::new_default();
-    config.mappings.physical_memory =
-        Some(bootloader_api::config::Mapping::FixedAddress(0xF0000000)); //TODO make this accessible to other modules
-    // config.kernel_stack_size = 100 * 1024;
+    config.mappings.physical_memory = Some(bootloader_api::config::Mapping::FixedAddress(
+        VIRTUAL_OFFSET as u64,
+    )); //TODO make this accessible to other modules
+        // config.kernel_stack_size = 100 * 1024;
     config
 };
 
@@ -54,7 +87,22 @@ fn kmain(boot_info: &'static mut bootloader_api::BootInfo) -> ! {
     let mut frame_alloc = unsafe { BootInfoFrameAllocator::init(&boot_info.memory_regions) };
     allocator::init_heap(&mut mapper, &mut frame_alloc).expect("heap initialization failed");
 
-    println!("Hello World{}", "!");
+    let rdsp_addr = &boot_info.rsdp_addr.into_option().unwrap();
+    let acpi = unsafe { AcpiTables::from_rsdp(TableHandler {}, *rdsp_addr as usize).unwrap() };
+
+    // TODO DSDT AML Parser
+
+    match acpi.platform_info().unwrap().interrupt_model {
+        acpi::InterruptModel::Unknown => {}
+        acpi::InterruptModel::Apic(apic) => {
+            println!("[APIC] LAPIC found at 0x{:X}", apic.local_apic_address);
+            println!("[APIC] IOAPICs:");
+            for ioapic in apic.io_apics.iter() {
+                println!("[APIC] {:?}", ioapic);
+            }
+        }
+        _ => {}
+    }
 
     let mut executor = Executor::new();
     executor.spawn(Task::new(keyboard::print_keys()));

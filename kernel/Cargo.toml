@@ -5,7 +5,8 @@ edition = "2021"
 authors = ["WorksByM <wittki56@gmail.com>"]
 
 [dependencies]
-acpi = "5.0.0"
+acpi = {version = "5.0.0", features = ["alloc"]}
+aml = "0.16.4"
 bootloader_api = "0.11.7"
 noto-sans-mono-bitmap = "0.3.0"
 volatile = "0.5.4"
