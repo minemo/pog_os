@@ -81,9 +81,9 @@ pub unsafe fn redirect_interrupt(
     IOAPIC.lock().enable_irq(table_idx);
 }
 
-pub unsafe fn init_apic() {
+pub unsafe fn init_apic(ioapic_offset: u8) {
     LAPIC.lock().enable();
-    IOAPIC.lock().init(32);
+    IOAPIC.lock().init(ioapic_offset);
 
     redirect_interrupt(InterruptIndex::Keyboard, 1, 0, IrqFlags::empty());
     redirect_interrupt(InterruptIndex::Mouse, 2, 0, IrqFlags::MASKED);

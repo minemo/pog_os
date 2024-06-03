@@ -26,7 +26,7 @@ pub fn init(boot_info: &'static mut bootloader_api::BootInfo) {
     gdt::init();
     interrupts::init_idt();
     unsafe {
-        interrupts::init_apic();
+        interrupts::init_apic(0);
     };
     x86_64::instructions::interrupts::enable();
 }

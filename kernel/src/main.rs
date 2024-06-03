@@ -79,6 +79,10 @@ fn kmain(boot_info: &'static mut bootloader_api::BootInfo) -> ! {
     // Create a BootInfo pointer for the init function to use
     let bi_ptr: *mut BootInfo = &mut *boot_info;
 
+    // ACPI parser
+    let rdsp_addr = &boot_info.rsdp_addr.into_option().unwrap();
+    let acpi = unsafe { AcpiTables::from_rsdp(TableHandler {}, *rdsp_addr as usize).unwrap() };
+
     // Init kernel
     kernel::init(unsafe { &mut *bi_ptr });
 
@@ -86,9 +90,6 @@ fn kmain(boot_info: &'static mut bootloader_api::BootInfo) -> ! {
     let mut mapper = unsafe { memory::init(phys_mem_offset) };
     let mut frame_alloc = unsafe { BootInfoFrameAllocator::init(&boot_info.memory_regions) };
     allocator::init_heap(&mut mapper, &mut frame_alloc).expect("heap initialization failed");
-
-    let rdsp_addr = &boot_info.rsdp_addr.into_option().unwrap();
-    let acpi = unsafe { AcpiTables::from_rsdp(TableHandler {}, *rdsp_addr as usize).unwrap() };
 
     // TODO DSDT AML Parser
 
