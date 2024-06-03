@@ -1,4 +1,18 @@
-use std::fs;
+use std::{fs, path::PathBuf};
+
+fn get_or_create_disk(name: &str) -> PathBuf {
+    if let Some(p) = fs::read_dir("./").unwrap().find(|x| x.as_ref().unwrap().file_name() == name) {
+        println!("Using image ./{}", name);
+        return p.unwrap().path();
+    } else {
+        println!("Image {} not found. Creating a new one", name);
+        let mut create_cmd = std::process::Command::new("qemu-img");
+        create_cmd.args(["create","-f","qcow2",name, "5G"]);
+        let mut child = create_cmd.spawn().unwrap();
+        child.wait().unwrap();
+        return PathBuf::from(format!("./{name}"));
+    }
+}
 
 fn main() {
     // read env variables that were set in build script
@@ -20,16 +34,28 @@ fn main() {
         Some(_) => {
             println!("In CI environment, not running qemu");
         }
-        _ => {
+        None => {
             println!("Not in CI environment, running qemu");
             let mut cmd = std::process::Command::new("qemu-system-x86_64");
-            cmd.arg("-bios").arg("./ovmf/OVMF-pure-efi.fd");
-            cmd.arg("-drive")
-                .arg(format!("format=raw,file={uefi_path}"));
-            // cmd.arg("-drive").arg(format!("format=raw,file={bios_path}"));
+            
+            // use UEFI unless specified otherwise
+            match std::env::var_os("POG_USE_BIOS") {
+                Some(_) => {
+                    println!("using BIOS instead of UEFI");
+                    cmd.arg("-drive").arg(format!("format=raw,file={bios_path}"));
+                }
+                None => {
+                    cmd.arg("-bios").arg("./ovmf/OVMF-pure-efi.fd");
+                    cmd.arg("-drive")
+                        .arg(format!("format=raw,file={uefi_path}"));
+                }
+            }
 
+            // add a disk for the os to use
+            cmd.arg("-drive").arg(format!("format=qcow2,file={}",get_or_create_disk("drive.img").to_str().unwrap()));
+            
             // set device specs
-            cmd.arg("-cpu").arg("phenom");
+            cmd.arg("-cpu").arg("max");
             cmd.arg("-m").arg("4G");
 
             // add ISA debug OS exit
