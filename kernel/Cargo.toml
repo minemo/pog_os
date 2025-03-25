@@ -5,14 +5,21 @@ edition = "2021"
 authors = ["WorksByM <wittki56@gmail.com>"]
 
 [dependencies]
-acpi = {version = "5.0.0", features = ["alloc"]}
+acpi = { version = "5.0.0", features = ["alloc"] }
 aml = "0.16.4"
+bitflags = "2.9.0"
 bootloader_api = "0.11.7"
 noto-sans-mono-bitmap = "0.3.0"
 volatile = "0.5.4"
-x86_64 = "0.15.1"
+x86_64 = "0.15.2"
 uart_16550 = "0.3.0"
-spin = {version="0.9.8",features=["mutex","spin_mutex","once","lazy","lock_api"]}
+spin = { version = "0.9.8", features = [
+  "mutex",
+  "spin_mutex",
+  "once",
+  "lazy",
+  "lock_api",
+] }
 generic_once_cell = "0.1.1"
 lock_api = "0.4.12"
 pc-keyboard = "0.7.0"
@@ -28,3 +35,4 @@ features = ["alloc"]
 version = "0.3.4"
 default-features = false
 features = ["alloc"]
+

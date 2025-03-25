@@ -1,16 +1,19 @@
 use std::{fs, path::PathBuf};
 
 fn get_or_create_disk(name: &str) -> PathBuf {
-    if let Some(p) = fs::read_dir("./").unwrap().find(|x| x.as_ref().unwrap().file_name() == name) {
+    if let Some(p) = fs::read_dir("./")
+        .unwrap()
+        .find(|x| x.as_ref().unwrap().file_name() == name)
+    {
         println!("Using image ./{}", name);
-        return p.unwrap().path();
+        p.unwrap().path()
     } else {
         println!("Image {} not found. Creating a new one", name);
         let mut create_cmd = std::process::Command::new("qemu-img");
-        create_cmd.args(["create","-f","qcow2",name, "5G"]);
+        create_cmd.args(["create", "-f", "raw", name, "1G"]);
         let mut child = create_cmd.spawn().unwrap();
         child.wait().unwrap();
-        return PathBuf::from(format!("./{name}"));
+        PathBuf::from(format!("./{name}"))
     }
 }
 
@@ -37,12 +40,13 @@ fn main() {
         None => {
             println!("Not in CI environment, running qemu");
             let mut cmd = std::process::Command::new("qemu-system-x86_64");
-            
+
             // use UEFI unless specified otherwise
             match std::env::var_os("POG_USE_BIOS") {
                 Some(_) => {
                     println!("using BIOS instead of UEFI");
-                    cmd.arg("-drive").arg(format!("format=raw,file={bios_path}"));
+                    cmd.arg("-drive")
+                        .arg(format!("format=raw,file={bios_path}"));
                 }
                 None => {
                     cmd.arg("-bios").arg("./ovmf/OVMF-pure-efi.fd");
@@ -52,8 +56,11 @@ fn main() {
             }
 
             // add a disk for the os to use
-            cmd.arg("-drive").arg(format!("format=qcow2,file={}",get_or_create_disk("drive.img").to_str().unwrap()));
-            
+            cmd.arg("-drive").arg(format!(
+                "format=raw,if=ide,file={}",
+                get_or_create_disk("drive.img").to_str().unwrap()
+            ));
+
             // set device specs
             cmd.arg("-cpu").arg("max");
             cmd.arg("-m").arg("4G");

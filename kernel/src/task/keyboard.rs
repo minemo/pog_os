@@ -14,7 +14,7 @@ static WAKER: AtomicWaker = AtomicWaker::new();
 
 pub(crate) fn add_scancode(scancode: u8) {
     if let Some(queue) = SCANCODE_QUEUE.get() {
-        if let Err(_) = queue.push(scancode) {
+        if queue.push(scancode).is_err() {
             println!("WARNING: queue full, dropping input");
         } else {
             WAKER.wake();

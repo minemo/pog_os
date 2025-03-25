@@ -11,11 +11,10 @@ extern crate alloc;
 use core::ptr::NonNull;
 
 use acpi::{AcpiHandler, AcpiTables, PhysicalMapping};
-use alloc::boxed::Box;
-use aml::AmlContext;
 use bootloader_api::BootInfo;
 use kernel::{
     allocator,
+    ata::pio::asd,
     memory::{self, BootInfoFrameAllocator},
     println,
     task::{executor::Executor, keyboard, Task},
@@ -103,6 +102,13 @@ fn kmain(boot_info: &'static mut bootloader_api::BootInfo) -> ! {
             }
         }
         _ => {}
+    }
+
+    match asd() {
+        Some(x) => {
+            println!("{:?}", x.get(0..64).unwrap());
+        }
+        None => {}
     }
 
     let mut executor = Executor::new();
