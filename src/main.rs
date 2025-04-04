@@ -1,4 +1,8 @@
-use std::{fs, path::PathBuf};
+use std::{
+    fs::{self, File},
+    io::Write,
+    path::PathBuf,
+};
 
 fn get_or_create_disk(name: &str) -> PathBuf {
     if let Some(p) = fs::read_dir("./")
@@ -9,10 +13,17 @@ fn get_or_create_disk(name: &str) -> PathBuf {
         p.unwrap().path()
     } else {
         println!("Image {} not found. Creating a new one", name);
-        let mut create_cmd = std::process::Command::new("qemu-img");
-        create_cmd.args(["create", "-f", "raw", name, "1G"]);
-        let mut child = create_cmd.spawn().unwrap();
-        child.wait().unwrap();
+        // create file with test-pattern
+        let mut f = File::create(name).unwrap();
+        for i in 0..1024 * 512 {
+            f.write_all(&[(i % 2 == 0) as u8]).unwrap();
+        }
+
+        // create empty disk image using qemu-img
+        // let mut create_cmd = std::process::Command::new("qemu-img");
+        // create_cmd.args(["create", "-f", "raw", name, "1G"]);
+        // let mut child = create_cmd.spawn().unwrap();
+        // child.wait().unwrap();
         PathBuf::from(format!("./{name}"))
     }
 }
@@ -57,7 +68,7 @@ fn main() {
 
             // add a disk for the os to use
             cmd.arg("-drive").arg(format!(
-                "format=raw,if=ide,file={}",
+                "id=atadisk,format=raw,if=ide,index=1,media=disk,file={}",
                 get_or_create_disk("drive.img").to_str().unwrap()
             ));
 
@@ -72,7 +83,9 @@ fn main() {
             // add serial support
             cmd.arg("-serial").arg("stdio");
 
-            // cmd.arg("-d").arg("int").arg("-D").arg("debug.txt");
+            // cmd.arg("-s").arg("-S");
+
+            // cmd.arg("-d").arg("int");
 
             // run qemu
             let mut child = cmd.spawn().unwrap();

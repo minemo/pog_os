@@ -104,11 +104,8 @@ fn kmain(boot_info: &'static mut bootloader_api::BootInfo) -> ! {
         _ => {}
     }
 
-    match asd() {
-        Some(x) => {
-            println!("{:?}", x.get(0..64).unwrap());
-        }
-        None => {}
+    if let Some(x) = asd() {
+        println!("{:?}", x);
     }
 
     let mut executor = Executor::new();

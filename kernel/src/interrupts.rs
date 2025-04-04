@@ -1,5 +1,5 @@
 use crate::{gdt, hlt_loop, println};
-use spin::{lazy::Lazy,mutex::Mutex};
+use spin::{lazy::Lazy, mutex::Mutex};
 use x2apic::{
     ioapic::{IoApic, IrqFlags, IrqMode, RedirectionTableEntry},
     lapic::{LocalApic, LocalApicBuilder},
@@ -19,6 +19,9 @@ pub enum InterruptIndex {
     Timer = INTERRUPT_BASE,
     Keyboard,
     Mouse = INTERRUPT_BASE + 12,
+    Coprocessor,
+    PrimaryATA,
+    SecondaryATA,
 }
 
 impl InterruptIndex {
@@ -58,6 +61,8 @@ static IDT: Lazy<InterruptDescriptorTable> = Lazy::new(|| {
     idt[InterruptIndex::Timer.as_u8()].set_handler_fn(timer_interrupt_handler);
     idt[InterruptIndex::Keyboard.as_u8()].set_handler_fn(keyboard_interrupt_handler);
     idt[InterruptIndex::Mouse.as_u8()].set_handler_fn(mouse_interrupt_handler);
+    idt[InterruptIndex::PrimaryATA.as_u8()].set_handler_fn(primary_ata_interrupt_handler);
+    idt[InterruptIndex::SecondaryATA.as_u8()].set_handler_fn(secondary_ata_interrupt_handler);
     idt.page_fault.set_handler_fn(page_fault_handler);
     idt
 });
@@ -87,6 +92,8 @@ pub unsafe fn init_apic(ioapic_offset: u8) {
 
     redirect_interrupt(InterruptIndex::Keyboard, 1, 0, IrqFlags::empty());
     redirect_interrupt(InterruptIndex::Mouse, 2, 0, IrqFlags::MASKED);
+    redirect_interrupt(InterruptIndex::PrimaryATA, 3, 0, IrqFlags::empty());
+    redirect_interrupt(InterruptIndex::PrimaryATA, 4, 0, IrqFlags::empty());
 }
 
 extern "x86-interrupt" fn breakpoint_handler(stack_frame: InterruptStackFrame) {
@@ -135,5 +142,15 @@ extern "x86-interrupt" fn keyboard_interrupt_handler(_stack_frame: InterruptStac
 extern "x86-interrupt" fn mouse_interrupt_handler(_stack_frame: InterruptStackFrame) {
     // print!("#");
     //TODO implement mouse input
+    unsafe { LAPIC.lock().end_of_interrupt() }
+}
+
+extern "x86-interrupt" fn primary_ata_interrupt_handler(_stack_frame: InterruptStackFrame) {
+    println!("PRIMARY ATA INT");
+    unsafe { LAPIC.lock().end_of_interrupt() }
+}
+
+extern "x86-interrupt" fn secondary_ata_interrupt_handler(_stack_frame: InterruptStackFrame) {
+    println!("SECONDARY ATA INT");
     unsafe { LAPIC.lock().end_of_interrupt() }
 }
