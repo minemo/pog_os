@@ -1,4 +1,4 @@
-use crate::{gdt, hlt_loop, println};
+use crate::{gdt, hlt_loop, print, println};
 use spin::{lazy::Lazy, mutex::Mutex};
 use x2apic::{
     ioapic::{IoApic, IrqFlags, IrqMode, RedirectionTableEntry},
@@ -18,7 +18,17 @@ pub const INTERRUPT_BASE: u8 = 0x20;
 pub enum InterruptIndex {
     Timer = INTERRUPT_BASE,
     Keyboard,
-    Mouse = INTERRUPT_BASE + 12,
+    Cascade,
+    COM2,
+    COM1,
+    LPT2,
+    Floppy,
+    LPT1,
+    CMOSClock = INTERRUPT_BASE + 0x50,
+    Peripheral1,
+    Peripheral2,
+    Peripheral3,
+    Mouse,
     Coprocessor,
     PrimaryATA,
     SecondaryATA,
@@ -91,9 +101,9 @@ pub unsafe fn init_apic(ioapic_offset: u8) {
     IOAPIC.lock().init(ioapic_offset);
 
     redirect_interrupt(InterruptIndex::Keyboard, 1, 0, IrqFlags::empty());
-    redirect_interrupt(InterruptIndex::Mouse, 2, 0, IrqFlags::MASKED);
+    redirect_interrupt(InterruptIndex::Mouse, 2, 0, IrqFlags::empty());
     redirect_interrupt(InterruptIndex::PrimaryATA, 3, 0, IrqFlags::empty());
-    redirect_interrupt(InterruptIndex::PrimaryATA, 4, 0, IrqFlags::empty());
+    redirect_interrupt(InterruptIndex::SecondaryATA, 4, 0, IrqFlags::empty());
 }
 
 extern "x86-interrupt" fn breakpoint_handler(stack_frame: InterruptStackFrame) {
@@ -140,8 +150,14 @@ extern "x86-interrupt" fn keyboard_interrupt_handler(_stack_frame: InterruptStac
 }
 
 extern "x86-interrupt" fn mouse_interrupt_handler(_stack_frame: InterruptStackFrame) {
-    // print!("#");
     //TODO implement mouse input
+    // Enable mouse:
+    // write(0xd4) -> 0x64
+    // write(0xf4) -> 0x60
+    // wait while !(read(0x64) & 1)
+    // ack <- read(0x60)
+    //
+    // begin reading mouse inputs
     unsafe { LAPIC.lock().end_of_interrupt() }
 }
 

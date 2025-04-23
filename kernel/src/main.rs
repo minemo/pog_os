@@ -11,12 +11,13 @@ extern crate alloc;
 use core::ptr::NonNull;
 
 use acpi::{AcpiHandler, AcpiTables, PhysicalMapping};
+use alloc::vec::Vec;
 use bootloader_api::BootInfo;
 use kernel::{
     allocator,
     ata::pio::asd,
     memory::{self, BootInfoFrameAllocator},
-    println,
+    println, serial_println,
     task::{executor::Executor, keyboard, Task},
 };
 use x86_64::VirtAddr;
@@ -39,14 +40,13 @@ impl AcpiHandler for TableHandler {
         physical_address: usize,
         size: usize,
     ) -> acpi::PhysicalMapping<Self, T> {
-        let mapping = PhysicalMapping::<Self, T>::new(
+        PhysicalMapping::<Self, T>::new(
             physical_address,
             NonNull::<T>::new((VIRTUAL_OFFSET + physical_address) as *mut T).unwrap(),
             size,
             size,
             *self,
-        );
-        mapping
+        )
     }
 
     fn unmap_physical_region<T>(_region: &acpi::PhysicalMapping<Self, T>) {
@@ -105,7 +105,10 @@ fn kmain(boot_info: &'static mut bootloader_api::BootInfo) -> ! {
     }
 
     if let Some(x) = asd() {
-        println!("{:?}", x);
+        println!(
+            "{:02x?}",
+            x.iter().flat_map(|x| x.to_le_bytes()).collect::<Vec<u8>>()
+        );
     }
 
     let mut executor = Executor::new();

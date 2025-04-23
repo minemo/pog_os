@@ -1,33 +1,24 @@
-use alloc::vec;
+use core::error::Error;
+use core::fmt;
+
+use alloc::boxed::{self, Box};
 use alloc::vec::Vec;
-use bitflags::bitflags;
-use x86_64::instructions::port::{
-    Port, PortGeneric, ReadOnlyAccess, ReadWriteAccess, WriteOnlyAccess,
-};
+use alloc::{string::String, vec};
+use x86_64::instructions::port::{PortGeneric, ReadOnlyAccess, ReadWriteAccess, WriteOnlyAccess};
 
-use crate::println;
+use crate::{println, serial_println};
 
-bitflags! {
-    struct StatusFlags: u8 {
-        const ERR = 0b00000001;
-        const IDX = 0b00000010;
-        const CORR = 0b00000100;
-        const DRQ = 0b00001000;
-        const SRV = 0b00010000;
-        const DF = 0b00100000;
-        const RDY = 0b01000000;
-        const BSY = 0b10000000;
-    }
-}
+#[derive(Debug)]
+struct ATAError;
 
 pub struct ATAIOBus {
     data: PortGeneric<u16, ReadWriteAccess>,
-    error: PortGeneric<u16, ReadOnlyAccess>,
-    features: PortGeneric<u16, WriteOnlyAccess>,
-    sector_count: PortGeneric<u16, ReadWriteAccess>,
-    sector_num: PortGeneric<u16, ReadWriteAccess>,
-    cylinder_low: PortGeneric<u16, ReadWriteAccess>,
-    cylinder_high: PortGeneric<u16, ReadWriteAccess>,
+    error: PortGeneric<u8, ReadOnlyAccess>,
+    features: PortGeneric<u8, WriteOnlyAccess>,
+    sector_count: PortGeneric<u8, ReadWriteAccess>,
+    sector_num: PortGeneric<u8, ReadWriteAccess>,
+    cylinder_low: PortGeneric<u8, ReadWriteAccess>,
+    cylinder_high: PortGeneric<u8, ReadWriteAccess>,
     head: PortGeneric<u8, ReadWriteAccess>,
     status: PortGeneric<u8, ReadOnlyAccess>,
     command: PortGeneric<u8, WriteOnlyAccess>,
@@ -63,6 +54,24 @@ impl ATAIOBus {
         }
     }
 
+    /// Polls the [`ATAIOBus`] until it is ready for next command or data read (status bit 7 clears).
+    ///
+    /// # Safety
+    ///
+    /// .
+    pub unsafe fn poll_til_ready(&mut self) -> u8 {
+        let mut flags: u8;
+        loop {
+            flags = self.status.read();
+            if flags & 1 != 0 {
+                panic!("Error {:08b} during operation", self.error.read());
+            }
+            if (flags >> 7) & 1 == 0 {
+                return flags;
+            }
+        }
+    }
+
     /// Checks if [`ATAIOBus`] is in Float state.
     ///
     /// # Safety
@@ -78,31 +87,23 @@ impl ATAIOBus {
     ///
     /// .
     pub unsafe fn identify(&mut self, secondary: bool) -> Option<[u16; 256]> {
-        self.head.write(0xa0 + ((secondary as u8) << 4));
+        self.poll_til_ready();
+        self.head.write(0xa0 | ((secondary as u8) << 4));
+        _ = self.poll_til_ready();
         self.sector_count.write(0);
         self.sector_num.write(0);
         self.cylinder_low.write(0);
         self.cylinder_high.write(0);
         self.command.write(0xec);
-        let mut flags: u8 = self.status.read();
-        println!("{:b}", 0x80);
-        println!("{:b}", flags);
+        _ = self.poll_til_ready();
+        let mut flags: u8;
         loop {
-            // println!("{:b}", flags);
-            if (flags & 0x80) != 0 {
-                if (flags & 1) != 0
-                    || (self.sector_num.read() != 0
-                        || self.cylinder_low.read() != 0
-                        || self.cylinder_high.read() != 0)
-                {
-                    return None;
-                } else if (flags & 8) != 0 {
-                    println!("{:b}", flags);
-
-                    break;
-                }
-            } else {
-                flags = self.status.read();
+            flags = self.poll_til_ready();
+            if (flags & 1) == 1 {
+                println!("Identify error: {:b}", self.error.read());
+                return None;
+            } else if (flags >> 3) & 1 == 1 {
+                break;
             }
         }
         let mut ident: [u16; 256] = [0; 256];
@@ -115,11 +116,15 @@ impl ATAIOBus {
 
 impl ATACtrlBus {
     pub fn new(bus_base: u16) -> Self {
-        ATACtrlBus {
+        let mut atabus = ATACtrlBus {
             alternate_status: PortGeneric::new(bus_base),
             device_control: PortGeneric::new(bus_base),
             drive_addr: PortGeneric::new(bus_base + 1),
+        };
+        unsafe {
+            atabus.device_control.write(0);
         }
+        atabus
     }
 
     /// Disable interrupts of this [`ATACtrlBus`].
@@ -146,8 +151,8 @@ impl ATACtrlBus {
     ///
     /// .
     pub unsafe fn reset(&mut self) {
-        self.device_control.write(4);
-        self.device_control.write(0);
+        self.device_control.write(4_u8);
+        self.device_control.write(0_u8);
     }
 }
 
@@ -160,9 +165,10 @@ impl PIOBus {
             is_secondary: secondary,
             info: None,
         };
-        unsafe { println!("Bus Floating: {}", bus.io.check_float()) };
-        bus.info = unsafe { bus.io.identify(bus.is_secondary) };
-        // unsafe { bus.ctrl.device_control.write(0x02) };
+        unsafe {
+            bus.ctrl.reset();
+            bus.info = bus.io.identify(bus.is_secondary);
+        };
         bus
     }
 
@@ -172,15 +178,8 @@ impl PIOBus {
     ///
     /// .
     pub unsafe fn flush_cache(&mut self) {
-        self.io.command.write(0xe7);
-        let mut status = StatusFlags::from_bits_retain(self.io.status.read());
-        loop {
-            if !status.contains(StatusFlags::BSY) {
-                return;
-            } else {
-                status = StatusFlags::from_bits_retain(self.io.status.read());
-            }
-        }
+        self.io.command.write(0xea);
+        _ = self.io.poll_til_ready();
     }
 
     /// Read data from this [`PIOBus`].
@@ -188,18 +187,19 @@ impl PIOBus {
     /// # Safety
     ///
     /// .
-    pub unsafe fn read(&mut self, lba: [u8; 6], num_sectors: u16) -> Option<Vec<u16>> {
-        self.io.head.write(0x40 | (self.is_secondary as u8) << 4);
+    pub unsafe fn read(&mut self, lba: [u8; 6], num_sectors: u8) -> Option<Vec<u16>> {
+        self.io.head.write(0x40 | ((self.is_secondary as u8) << 4));
+        _ = self.io.poll_til_ready();
         self.io.sector_count.write(num_sectors & 0xf0);
-        self.io.sector_num.write(lba[3] as u16);
-        self.io.cylinder_low.write(lba[4] as u16);
-        self.io.cylinder_high.write(lba[5] as u16);
+        self.io.sector_num.write(lba[3] as u8);
+        self.io.cylinder_low.write(lba[4] as u8);
+        self.io.cylinder_high.write(lba[5] as u8);
         self.io.sector_count.write(num_sectors & 0x0f);
-        self.io.sector_num.write(lba[0] as u16);
-        self.io.cylinder_low.write(lba[1] as u16);
-        self.io.cylinder_high.write(lba[2] as u16);
+        self.io.sector_num.write(lba[0] as u8);
+        self.io.cylinder_low.write(lba[1] as u8);
+        self.io.cylinder_high.write(lba[2] as u8);
         self.io.command.write(0x24);
-        let mut status = StatusFlags::from_bits_retain(self.ctrl.alternate_status.read());
+        let mut status: u8;
         let mut data: Vec<u16> = Vec::new();
         let real_secnum: u32 = if num_sectors == 0 {
             65536
@@ -207,14 +207,10 @@ impl PIOBus {
             num_sectors as u32
         };
         for _ in 0..real_secnum {
-            loop {
-                if !status.contains(StatusFlags::BSY) && status.contains(StatusFlags::DRQ) {
-                    break;
-                } else if status.contains(StatusFlags::ERR) || status.contains(StatusFlags::DF) {
-                    return None;
-                } else {
-                    status = StatusFlags::from_bits_retain(self.ctrl.alternate_status.read());
-                }
+            status = self.io.poll_til_ready();
+            if status & 1 == 1 || (status >> 5) & 1 == 1 {
+                println!("Read error: {:08b}", self.io.error.read());
+                return None;
             }
             for _ in 0..255 {
                 data.push(self.io.data.read());
@@ -228,44 +224,42 @@ impl PIOBus {
     /// # Safety
     ///
     /// .
-    pub unsafe fn write(&mut self, lba: [u8; 6], num_sectors: u16, is_slave: bool, data: Vec<u16>) {
-        self.io.head.write(0x40 | (is_slave as u8) << 4);
+    pub unsafe fn write(&mut self, lba: [u8; 6], num_sectors: u8, data: Vec<u16>) {
+        self.io.head.write(0x40 | ((self.is_secondary as u8) << 4));
+        _ = self.io.poll_til_ready();
         self.io.sector_count.write(num_sectors & 0xf0);
-        self.io.sector_num.write(lba[3] as u16);
-        self.io.cylinder_low.write(lba[4] as u16);
-        self.io.cylinder_high.write(lba[5] as u16);
+        self.io.sector_num.write(lba[3] as u8);
+        self.io.cylinder_low.write(lba[4] as u8);
+        self.io.cylinder_high.write(lba[5] as u8);
         self.io.sector_count.write(num_sectors & 0x0f);
-        self.io.sector_num.write(lba[0] as u16);
-        self.io.cylinder_low.write(lba[1] as u16);
-        self.io.cylinder_high.write(lba[2] as u16);
-        self.io.command.write(0x24);
-        let mut status = StatusFlags::from_bits_retain(self.ctrl.alternate_status.read());
+        self.io.sector_num.write(lba[0] as u8);
+        self.io.cylinder_low.write(lba[1] as u8);
+        self.io.cylinder_high.write(lba[2] as u8);
+        self.io.command.write(0x34);
+        let mut status: u8;
         let mut writehead = 0;
-        let real_secnum: u16 = if num_sectors == 0 {
-            256
+        let real_secnum: u32 = if num_sectors == 0 {
+            65536
         } else {
-            num_sectors as u16
+            num_sectors as u32
         };
         for _ in 0..real_secnum {
-            loop {
-                if !status.contains(StatusFlags::BSY) && status.contains(StatusFlags::DRQ) {
-                    break;
-                } else if status.contains(StatusFlags::ERR) || status.contains(StatusFlags::DF) {
-                    return;
-                } else {
-                    status = StatusFlags::from_bits_retain(self.ctrl.alternate_status.read());
-                }
+            status = self.io.poll_til_ready();
+            if status & 1 == 1 || (status >> 5) & 1 == 1 {
+                println!("Write error: {:08b}", self.io.error.read());
+                return;
             }
             for _ in 0..255 {
                 if writehead < data.len() {
-                    self.io.data.write(*data.get(writehead).unwrap());
+                    let out: u16 = *data.get(writehead).unwrap();
+                    self.io.data.write(out);
                     writehead += 1;
                 } else {
-                    self.io.data.write(0x0);
+                    self.io.data.write(0);
                 }
             }
+            self.flush_cache();
         }
-        self.flush_cache();
     }
 
     pub fn get_info_vec(&mut self) -> Vec<u16> {
@@ -273,21 +267,80 @@ impl PIOBus {
         out.clone_from_slice(&self.info.unwrap());
         out
     }
+
+    pub fn get_selected_drive(&mut self) -> u8 {
+        unsafe { !self.ctrl.drive_addr.read() & 3 }
+    }
+
+    pub fn get_error(&mut self) -> u8 {
+        unsafe { self.io.error.read() }
+    }
 }
 
 pub struct PIOController {}
 
-pub fn asd() -> Option<Vec<u16>> {
-    let mut prim_bus = PIOBus::new(0x1f0, false);
+pub fn test_read() -> Option<Vec<u16>> {
+    let mut prim_bus = PIOBus::new(0x1f0, true);
+    println!(
+        "Serial Number {}",
+        prim_bus
+            .info
+            .unwrap()
+            .iter()
+            .skip(9)
+            .take(8)
+            .flat_map(|x| x.to_be_bytes())
+            .skip(2)
+            .map(|x| x as char)
+            .collect::<String>()
+            .trim()
+    );
 
-    // unsafe { println!("{:x}", prim_bus.io.identify(false).unwrap()[0]) };
+    println!(
+        "Supports 48bit PIO: {}",
+        prim_bus.get_info_vec()[83] >> 10 & 1
+    );
 
     // let test_data: Vec<u16> = vec![0xde, 0xad, 0xbe, 0xef];
     //
     // unsafe {
-    //     prim_bus.write(0, 1, test_data);
+    //     prim_bus.write([0, 0, 0, 0, 0, 0], 1, test_data);
+    //     _ = prim_bus.io.poll_til_ready();
     // }
 
-    None
-    // Some(unsafe { prim_bus.read([0, 0, 0, 0, 0, 0], 1).unwrap() })
+    Some(unsafe { prim_bus.read([0, 0, 0, 0, 0, 0], 1).unwrap() })
 }
+
+pub fn test_write() -> Result<(), _> {
+    let mut prim_bus = PIOBus::new(0x1f0, true);
+    println!(
+        "Serial Number {}",
+        prim_bus
+            .info
+            .unwrap()
+            .iter()
+            .skip(9)
+            .take(8)
+            .flat_map(|x| x.to_be_bytes())
+            .skip(2)
+            .map(|x| x as char)
+            .collect::<String>()
+            .trim()
+    );
+
+    println!(
+        "Supports 48bit PIO: {}",
+        prim_bus.get_info_vec()[83] >> 10 & 1
+    );
+
+    let test_data: Vec<u16> = vec![0xde, 0xad, 0xbe, 0xef];
+
+    unsafe {
+        prim_bus.write([0, 0, 0, 0, 0, 0], 1, test_data);
+        _ = prim_bus.io.poll_til_ready();
+    }
+
+    OK(())
+}
+
+pub fn asd() -> Option<Vec<u16>> {}

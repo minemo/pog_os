@@ -15,7 +15,7 @@ fn get_or_create_disk(name: &str) -> PathBuf {
         println!("Image {} not found. Creating a new one", name);
         // create file with test-pattern
         let mut f = File::create(name).unwrap();
-        for i in 0..1024 * 512 {
+        for i in 0..1024 * 1024 {
             f.write_all(&[(i % 2 == 0) as u8]).unwrap();
         }
 
@@ -68,7 +68,7 @@ fn main() {
 
             // add a disk for the os to use
             cmd.arg("-drive").arg(format!(
-                "id=atadisk,format=raw,if=ide,index=1,media=disk,file={}",
+                "format=raw,if=ide,bus=0,index=1,file={}",
                 get_or_create_disk("drive.img").to_str().unwrap()
             ));
 
