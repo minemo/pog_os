@@ -1,5 +1,6 @@
 use crate::print;
 use crate::println;
+use crate::task::console::add_console_char;
 use core::{
     pin::Pin,
     task::{Context, Poll},
@@ -45,7 +46,7 @@ impl Stream for ScancodeStream {
             return Poll::Ready(Some(scancode));
         }
 
-        WAKER.register(&cx.waker());
+        WAKER.register(cx.waker());
         match queue.pop() {
             Some(scancode) => {
                 WAKER.take();
@@ -70,6 +71,7 @@ pub async fn print_keys() {
                 match key {
                     DecodedKey::Unicode(char) => {
                         print!("{}", char);
+                        add_console_char(char);
                     }
                     DecodedKey::RawKey(KeyCode::Return) => {
                         print!("\n");

@@ -107,8 +107,8 @@ fn get_char_raster(c: char) -> RasterizedChar {
 pub struct FrameBufferWriter {
     framebuffer: &'static mut [u8],
     info: FrameBufferInfo,
-    x_pos: usize,
-    y_pos: usize,
+    pub x_pos: usize,
+    pub y_pos: usize,
 }
 
 impl FrameBufferWriter {
