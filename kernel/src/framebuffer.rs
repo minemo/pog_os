@@ -4,7 +4,7 @@ use font_constants::BACKUP_CHAR;
 use noto_sans_mono_bitmap::{
     get_raster, get_raster_width, FontWeight, RasterHeight, RasterizedChar,
 };
-use spin::{once::Once,mutex::Mutex};
+use spin::{mutex::Mutex, once::Once};
 
 const LINE_SPACING: usize = 2;
 const LETTER_SPACING: usize = 0;
@@ -205,6 +205,45 @@ impl FrameBufferWriter {
             for j in y..h {
                 let px_offset = j * self.info.stride + i;
                 let byte_offset = px_offset * bytes_per_pixel;
+                self.framebuffer[byte_offset..(byte_offset + bytes_per_pixel)]
+                    .copy_from_slice(&color[..bytes_per_pixel]);
+                let _ = unsafe { ptr::read_volatile(&self.framebuffer[byte_offset]) };
+            }
+        }
+    }
+
+    pub fn draw_image_gray(&mut self, x: usize, y: usize, w: usize, h: usize, img_data: &[u8]) {
+        let bytes_per_pixel = self.info.bytes_per_pixel;
+        for i in 0..w {
+            let i_off = x + i;
+            for j in 0..h {
+                let j_off = y + j;
+                let px_offset = j_off * self.info.stride + i_off;
+                let byte_offset = px_offset * bytes_per_pixel;
+                let color = self.get_color(PixelValue::Mono(img_data[j * w + i]), false);
+                self.framebuffer[byte_offset..(byte_offset + bytes_per_pixel)]
+                    .copy_from_slice(&color[..bytes_per_pixel]);
+                let _ = unsafe { ptr::read_volatile(&self.framebuffer[byte_offset]) };
+            }
+        }
+    }
+
+    pub fn draw_image(&mut self, x: usize, y: usize, w: usize, h: usize, img_data: &[&[u8]]) {
+        let bytes_per_pixel = self.info.bytes_per_pixel;
+        for i in 0..w {
+            let i_off = x + i;
+            for j in 0..h {
+                let j_off = y + j;
+                let px_offset = j_off * self.info.stride + i_off;
+                let byte_offset = px_offset * bytes_per_pixel;
+                let color = self.get_color(
+                    PixelValue::Rgb(
+                        img_data[0][j * w + i],
+                        img_data[1][j * w + i],
+                        img_data[2][j * w + i],
+                    ),
+                    false,
+                );
                 self.framebuffer[byte_offset..(byte_offset + bytes_per_pixel)]
                     .copy_from_slice(&color[..bytes_per_pixel]);
                 let _ = unsafe { ptr::read_volatile(&self.framebuffer[byte_offset]) };

@@ -11,11 +11,12 @@ extern crate alloc;
 use core::ptr::NonNull;
 
 use acpi::{AcpiHandler, AcpiTables, PhysicalMapping};
-use alloc::vec::Vec;
+use alloc::{string::String, vec::Vec};
 use bootloader_api::BootInfo;
 use kernel::{
     allocator,
-    ata::pio::asd,
+    ata::pio::{test_read, test_write},
+    framebuffer::FBWRITER,
     memory::{self, BootInfoFrameAllocator},
     println, serial_println,
     task::{executor::Executor, keyboard, Task},
@@ -104,10 +105,43 @@ fn kmain(boot_info: &'static mut bootloader_api::BootInfo) -> ! {
         _ => {}
     }
 
-    if let Some(x) = asd() {
-        println!(
-            "{:02x?}",
-            x.iter().flat_map(|x| x.to_le_bytes()).collect::<Vec<u8>>()
+    // test_write();
+
+    // Reads PPM image from drive and displays it
+    if let Some(x) = test_read() {
+        let data: Vec<u8> = x.iter().flat_map(|v| v.to_le_bytes()).collect();
+        let imginfo = data[0..0x10].iter().map(|&v| v as char).collect::<String>();
+        let mut imglines = imginfo.split('\n');
+        let imgtype = imglines.next().unwrap();
+        let imgsize = imglines
+            .next()
+            .unwrap()
+            .split(" ")
+            .map(|v| v.parse::<u16>().unwrap())
+            .collect::<Vec<u16>>();
+        println!("Read {} bytes of data", data.len());
+        println!("Image type: {}, size: {:?}", imgtype, &imgsize);
+
+        let r: Vec<u8> = data[0x0f..data.len()].iter().step_by(3).copied().collect();
+        let g: Vec<u8> = data[0x0f..data.len()]
+            .iter()
+            .skip(1)
+            .step_by(3)
+            .copied()
+            .collect();
+        let b: Vec<u8> = data[0x0f..data.len()]
+            .iter()
+            .skip(2)
+            .step_by(3)
+            .copied()
+            .collect();
+
+        FBWRITER.get().unwrap().lock().draw_image(
+            0,
+            128,
+            imgsize[0] as usize,
+            imgsize[1] as usize,
+            &[r.as_slice(), g.as_slice(), b.as_slice()],
         );
     }
 

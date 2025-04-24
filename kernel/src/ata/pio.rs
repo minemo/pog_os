@@ -1,7 +1,3 @@
-use core::error::Error;
-use core::fmt;
-
-use alloc::boxed::{self, Box};
 use alloc::vec::Vec;
 use alloc::{string::String, vec};
 use x86_64::instructions::port::{PortGeneric, ReadOnlyAccess, ReadWriteAccess, WriteOnlyAccess};
@@ -187,17 +183,18 @@ impl PIOBus {
     /// # Safety
     ///
     /// .
-    pub unsafe fn read(&mut self, lba: [u8; 6], num_sectors: u8) -> Option<Vec<u16>> {
+    pub unsafe fn read(&mut self, lba: u32, num_sectors: u16) -> Option<Vec<u16>> {
+        self.io.sector_count.write((num_sectors >> 8) as u8);
+        self.io.sector_num.write((lba >> 24) as u8);
+        self.io.cylinder_low.write(0);
+        self.io.cylinder_high.write(0);
+        self.io.sector_count.write((num_sectors << 8 >> 8) as u8);
+        self.io.sector_num.write((lba & 0xff) as u8);
+        self.io.cylinder_low.write(((lba & 0x0000ff00) >> 8) as u8);
+        self.io
+            .cylinder_high
+            .write(((lba & 0x00ff0000) >> 16) as u8);
         self.io.head.write(0x40 | ((self.is_secondary as u8) << 4));
-        _ = self.io.poll_til_ready();
-        self.io.sector_count.write(num_sectors & 0xf0);
-        self.io.sector_num.write(lba[3] as u8);
-        self.io.cylinder_low.write(lba[4] as u8);
-        self.io.cylinder_high.write(lba[5] as u8);
-        self.io.sector_count.write(num_sectors & 0x0f);
-        self.io.sector_num.write(lba[0] as u8);
-        self.io.cylinder_low.write(lba[1] as u8);
-        self.io.cylinder_high.write(lba[2] as u8);
         self.io.command.write(0x24);
         let mut status: u8;
         let mut data: Vec<u16> = Vec::new();
@@ -212,7 +209,7 @@ impl PIOBus {
                 println!("Read error: {:08b}", self.io.error.read());
                 return None;
             }
-            for _ in 0..255 {
+            for _ in 0..256 {
                 data.push(self.io.data.read());
             }
         }
@@ -224,42 +221,37 @@ impl PIOBus {
     /// # Safety
     ///
     /// .
-    pub unsafe fn write(&mut self, lba: [u8; 6], num_sectors: u8, data: Vec<u16>) {
+    pub unsafe fn write(&mut self, lba: u32, data: Vec<u16>) {
+        let num_sectors = data.chunks(256).len();
+        self.io.sector_count.write((num_sectors >> 8) as u8);
+        self.io.sector_num.write((lba >> 24) as u8);
+        self.io.cylinder_low.write(0);
+        self.io.cylinder_high.write(0);
+        self.io.sector_count.write((num_sectors << 8 >> 8) as u8);
+        self.io.sector_num.write((lba & 0xff) as u8);
+        self.io.cylinder_low.write(((lba & 0x0000ff00) >> 8) as u8);
+        self.io
+            .cylinder_high
+            .write(((lba & 0x00ff0000) >> 16) as u8);
         self.io.head.write(0x40 | ((self.is_secondary as u8) << 4));
-        _ = self.io.poll_til_ready();
-        self.io.sector_count.write(num_sectors & 0xf0);
-        self.io.sector_num.write(lba[3] as u8);
-        self.io.cylinder_low.write(lba[4] as u8);
-        self.io.cylinder_high.write(lba[5] as u8);
-        self.io.sector_count.write(num_sectors & 0x0f);
-        self.io.sector_num.write(lba[0] as u8);
-        self.io.cylinder_low.write(lba[1] as u8);
-        self.io.cylinder_high.write(lba[2] as u8);
         self.io.command.write(0x34);
         let mut status: u8;
-        let mut writehead = 0;
-        let real_secnum: u32 = if num_sectors == 0 {
-            65536
-        } else {
-            num_sectors as u32
-        };
-        for _ in 0..real_secnum {
+        for c in data.chunks(256) {
             status = self.io.poll_til_ready();
             if status & 1 == 1 || (status >> 5) & 1 == 1 {
                 println!("Write error: {:08b}", self.io.error.read());
                 return;
             }
-            for _ in 0..255 {
-                if writehead < data.len() {
-                    let out: u16 = *data.get(writehead).unwrap();
-                    self.io.data.write(out);
-                    writehead += 1;
-                } else {
-                    self.io.data.write(0);
+            for b in c.iter() {
+                self.io.data.write(*b);
+            }
+            if c.len() < 256 {
+                for _ in 0..256 - c.len() {
+                    self.io.data.write(0x0000);
                 }
             }
-            self.flush_cache();
         }
+        self.flush_cache();
     }
 
     pub fn get_info_vec(&mut self) -> Vec<u16> {
@@ -301,17 +293,12 @@ pub fn test_read() -> Option<Vec<u16>> {
         prim_bus.get_info_vec()[83] >> 10 & 1
     );
 
-    // let test_data: Vec<u16> = vec![0xde, 0xad, 0xbe, 0xef];
-    //
-    // unsafe {
-    //     prim_bus.write([0, 0, 0, 0, 0, 0], 1, test_data);
-    //     _ = prim_bus.io.poll_til_ready();
-    // }
+    let data = unsafe { prim_bus.read(0, 1152).unwrap() };
 
-    Some(unsafe { prim_bus.read([0, 0, 0, 0, 0, 0], 1).unwrap() })
+    Some(data)
 }
 
-pub fn test_write() -> Result<(), _> {
+pub fn test_write() {
     let mut prim_bus = PIOBus::new(0x1f0, true);
     println!(
         "Serial Number {}",
@@ -333,14 +320,10 @@ pub fn test_write() -> Result<(), _> {
         prim_bus.get_info_vec()[83] >> 10 & 1
     );
 
-    let test_data: Vec<u16> = vec![0xde, 0xad, 0xbe, 0xef];
+    let mut test_data: Vec<u16> = vec![0xaaaa, 0x0000];
+    test_data.append(&mut Vec::from([0xffff; 254]));
 
     unsafe {
-        prim_bus.write([0, 0, 0, 0, 0, 0], 1, test_data);
-        _ = prim_bus.io.poll_til_ready();
+        prim_bus.write(0, test_data);
     }
-
-    OK(())
 }
-
-pub fn asd() -> Option<Vec<u16>> {}
