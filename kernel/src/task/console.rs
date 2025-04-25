@@ -73,7 +73,7 @@ pub async fn run_console() {
                     let imginfo = data[0..0x10].iter().map(|&v| v as char).collect::<String>();
                     let mut imglines = imginfo.split('\n');
                     let imgsize = imglines
-                        .next()
+                        .nth(1)
                         .unwrap()
                         .split(" ")
                         .map(|v| v.parse::<u16>().unwrap())
@@ -104,6 +104,9 @@ pub async fn run_console() {
             }
             "clear" => {
                 FBWRITER.get().unwrap().lock().clear();
+            }
+            "help" => {
+                println!("TODO");
             }
             "exit" => {
                 use x86_64::instructions::port::Port;
