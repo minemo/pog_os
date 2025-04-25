@@ -1,7 +1,7 @@
 # gertrudOS [^1]
 [^1]: formerly known as pogOS
 
-A **_very_** basic operating system made in Rust. It's named after my cat Gertrud since she's awesome and of great help when debugging.
+A **_very_** basic operating system made in Rust. It's named after my cat [Gertrud](./assets/gertrud.jpg) since she's awesome and of great help when debugging.
 <br/>
 This is mostly intended as a learning excercise in both Rust and OS-development and will probably make people, who actually know about these things, very frustrated.
 <br/>
