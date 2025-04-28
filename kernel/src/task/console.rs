@@ -10,6 +10,7 @@ use core::{
 use crossbeam_queue::ArrayQueue;
 use futures_util::{stream::Stream, task::AtomicWaker, StreamExt};
 use spin::{mutex::Mutex, once::Once};
+use x86_64::registers;
 
 static COMMAND_QUEUE: Once<Mutex<ArrayQueue<String>>> = Once::new();
 static WAKER: AtomicWaker = AtomicWaker::new();
@@ -78,29 +79,39 @@ pub async fn run_console() {
                         .split(" ")
                         .map(|v| v.parse::<u16>().unwrap())
                         .collect::<Vec<u16>>();
-                    let r: Vec<u8> = data[0x0f..data.len()].iter().step_by(3).copied().collect();
-                    let g: Vec<u8> = data[0x0f..data.len()]
-                        .iter()
-                        .skip(1)
-                        .step_by(3)
-                        .copied()
-                        .collect();
-                    let b: Vec<u8> = data[0x0f..data.len()]
-                        .iter()
-                        .skip(2)
-                        .step_by(3)
-                        .copied()
-                        .collect();
+                    // let r: Vec<u8> = data[0x0f..data.len()].iter().step_by(3).copied().collect();
+                    // let g: Vec<u8> = data[0x0f..data.len()]
+                    //     .iter()
+                    //     .skip(1)
+                    //     .step_by(3)
+                    //     .copied()
+                    //     .collect();
+                    // let b: Vec<u8> = data[0x0f..data.len()]
+                    //     .iter()
+                    //     .skip(2)
+                    //     .step_by(3)
+                    //     .copied()
+                    //     .collect();
 
-                    let yoff = FBWRITER.get().unwrap().lock().y_pos;
-                    FBWRITER.get().unwrap().lock().draw_image(
-                        0,
-                        yoff,
-                        imgsize[0] as usize,
-                        imgsize[1] as usize,
-                        &[r.as_slice(), g.as_slice(), b.as_slice()],
-                    );
+                    // let yoff = FBWRITER.get().unwrap().lock().y_pos;
+                    // FBWRITER.get().unwrap().lock().draw_image(
+                    //     0,
+                    //     yoff,
+                    //     imgsize[0] as usize,
+                    //     imgsize[1] as usize,
+                    //     &[r.as_slice(), g.as_slice(), b.as_slice()],
+                    // );
                 }
+            }
+            "dbg" => {
+                println!(
+                    "Register info:\nRFLAGS: {:?}\nCR0: {:?}\nCR2: {:?}\nCR3: {:?}\nCR4: {:?}",
+                    registers::rflags::read(),
+                    registers::control::Cr0::read(),
+                    registers::control::Cr2::read(),
+                    registers::control::Cr3::read(),
+                    registers::control::Cr4::read()
+                );
             }
             "clear" => {
                 FBWRITER.get().unwrap().lock().clear();

@@ -86,9 +86,10 @@ pub unsafe fn redirect_interrupt(
     table_idx: u8,
     dest: u8,
     flags: IrqFlags,
+    mode: IrqMode,
 ) {
     let mut new_entry = RedirectionTableEntry::default();
-    new_entry.set_mode(IrqMode::Fixed);
+    new_entry.set_mode(mode);
     new_entry.set_flags(flags);
     new_entry.set_dest(dest);
     new_entry.set_vector(irq_idx.as_u8());
@@ -100,10 +101,34 @@ pub unsafe fn init_apic(ioapic_offset: u8) {
     LAPIC.lock().enable();
     IOAPIC.lock().init(ioapic_offset);
 
-    redirect_interrupt(InterruptIndex::Keyboard, 1, 0, IrqFlags::empty());
-    redirect_interrupt(InterruptIndex::Mouse, 2, 0, IrqFlags::empty());
-    redirect_interrupt(InterruptIndex::PrimaryATA, 3, 0, IrqFlags::empty());
-    redirect_interrupt(InterruptIndex::SecondaryATA, 4, 0, IrqFlags::empty());
+    redirect_interrupt(
+        InterruptIndex::Keyboard,
+        1,
+        0,
+        IrqFlags::empty(),
+        IrqMode::Fixed,
+    );
+    redirect_interrupt(
+        InterruptIndex::Mouse,
+        2,
+        0,
+        IrqFlags::empty(),
+        IrqMode::Fixed,
+    );
+    redirect_interrupt(
+        InterruptIndex::PrimaryATA,
+        3,
+        0,
+        IrqFlags::empty(),
+        IrqMode::Fixed,
+    );
+    redirect_interrupt(
+        InterruptIndex::SecondaryATA,
+        4,
+        0,
+        IrqFlags::empty(),
+        IrqMode::Fixed,
+    );
 }
 
 extern "x86-interrupt" fn breakpoint_handler(stack_frame: InterruptStackFrame) {

@@ -74,6 +74,7 @@ fn main() {
 
             // set device specs
             cmd.arg("-cpu").arg("max");
+            cmd.arg("-smp").arg("4");
             cmd.arg("-m").arg("4G");
 
             // add ISA debug OS exit
