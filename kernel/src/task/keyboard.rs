@@ -70,11 +70,7 @@ pub async fn print_keys() {
             if let Some(key) = keyboard.process_keyevent(event) {
                 match key {
                     DecodedKey::Unicode(char) => {
-                        print!("{}", char);
                         add_console_char(char);
-                    }
-                    DecodedKey::RawKey(KeyCode::Return) => {
-                        print!("\n");
                     }
                     DecodedKey::RawKey(_raw) => {
                         //TODO use textbuffer to access/modify input

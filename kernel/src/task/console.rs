@@ -16,7 +16,9 @@ static COMMAND_QUEUE: Once<Mutex<ArrayQueue<String>>> = Once::new();
 static WAKER: AtomicWaker = AtomicWaker::new();
 
 pub(crate) fn add_console_char(character: char) {
+    print!("{}", character);
     if let Some(queue) = COMMAND_QUEUE.get() {
+        //TODO handle backspace '\u{8}'
         let mut newpartial = String::from(character);
         if let Some(partial_command) = queue.lock().pop() {
             newpartial.insert_str(0, partial_command.as_str());
