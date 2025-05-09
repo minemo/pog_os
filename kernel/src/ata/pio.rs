@@ -2,7 +2,7 @@ use alloc::vec::Vec;
 use alloc::{string::String, vec};
 use x86_64::instructions::port::{PortGeneric, ReadOnlyAccess, ReadWriteAccess, WriteOnlyAccess};
 
-use crate::{println, serial_println};
+use crate::println;
 
 #[derive(Debug)]
 struct ATAError;
@@ -273,52 +273,52 @@ pub struct PIOController {}
 
 pub fn test_read() -> Option<Vec<u16>> {
     let mut prim_bus = PIOBus::new(0x1f0, true);
-    // println!(
-    //     "Serial Number {}",
-    //     prim_bus
-    //         .info
-    //         .unwrap()
-    //         .iter()
-    //         .skip(9)
-    //         .take(8)
-    //         .flat_map(|x| x.to_be_bytes())
-    //         .skip(2)
-    //         .map(|x| x as char)
-    //         .collect::<String>()
-    //         .trim()
-    // );
-    //
-    // println!(
-    //     "Supports 48bit PIO: {}",
-    //     prim_bus.get_info_vec()[83] >> 10 & 1
-    // );
+    println!(
+        "Serial Number {}",
+        prim_bus
+            .info
+            .unwrap()
+            .iter()
+            .skip(9)
+            .take(8)
+            .flat_map(|x| x.to_be_bytes())
+            .skip(2)
+            .map(|x| x as char)
+            .collect::<String>()
+            .trim()
+    );
 
-    let data = unsafe { prim_bus.read(0, 320).unwrap() };
+    println!(
+        "Supports 48bit PIO: {}",
+        prim_bus.get_info_vec()[83] >> 10 & 1
+    );
+
+    let data = unsafe { prim_bus.read(0, 960).unwrap() };
 
     Some(data)
 }
 
 pub fn test_write() {
     let mut prim_bus = PIOBus::new(0x1f0, true);
-    // println!(
-    //     "Serial Number {}",
-    //     prim_bus
-    //         .info
-    //         .unwrap()
-    //         .iter()
-    //         .skip(9)
-    //         .take(8)
-    //         .flat_map(|x| x.to_be_bytes())
-    //         .skip(2)
-    //         .map(|x| x as char)
-    //         .collect::<String>()
-    //         .trim()
-    // );
-    //
-    // println!(
-    //     "Supports 48bit PIO: {}",
-    //     prim_bus.get_info_vec()[83] >> 10 & 1
-    // );
+    println!(
+        "Serial Number {}",
+        prim_bus
+            .info
+            .unwrap()
+            .iter()
+            .skip(9)
+            .take(8)
+            .flat_map(|x| x.to_be_bytes())
+            .skip(2)
+            .map(|x| x as char)
+            .collect::<String>()
+            .trim()
+    );
+
+    println!(
+        "Supports 48bit PIO: {}",
+        prim_bus.get_info_vec()[83] >> 10 & 1
+    );
 
     let mut test_data: Vec<u16> = vec![0xaaaa, 0x0000];
     test_data.append(&mut Vec::from([0xffff; 254]));

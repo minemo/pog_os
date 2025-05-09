@@ -107,8 +107,8 @@ fn get_char_raster(c: char) -> RasterizedChar {
 pub struct FrameBufferWriter {
     framebuffer: &'static mut [u8],
     info: FrameBufferInfo,
-    pub x_pos: usize,
-    pub y_pos: usize,
+    x_pos: usize,
+    y_pos: usize,
 }
 
 impl FrameBufferWriter {
@@ -144,6 +144,22 @@ impl FrameBufferWriter {
 
     fn height(&self) -> usize {
         self.info.height
+    }
+
+    pub fn x(&self) -> usize {
+        self.x_pos
+    }
+
+    pub fn y(&self) -> usize {
+        self.y_pos
+    }
+
+    pub fn set_x(&mut self, x: usize) {
+        self.x_pos = x
+    }
+
+    pub fn set_y(&mut self, y: usize) {
+        self.y_pos = y
     }
 
     fn get_color(&mut self, value: PixelValue, thresholding: bool) -> [u8; 4] {
@@ -286,6 +302,28 @@ pub fn _print(args: fmt::Arguments) {
     });
 }
 
+#[doc(hidden)]
+pub fn _clear() {
+    use x86_64::instructions::interrupts;
+    interrupts::without_interrupts(|| {
+        FBWRITER.get().unwrap().lock().clear();
+    });
+}
+
+pub fn print_image(w: usize, h: usize, img_data: &[&[u8]]) {
+    use x86_64::instructions::interrupts;
+    interrupts::without_interrupts(|| {
+        let current_yoffset = FBWRITER.get().unwrap().lock().y();
+        FBWRITER
+            .get()
+            .unwrap()
+            .lock()
+            .draw_image(0, current_yoffset, w, h, img_data);
+        FBWRITER.get().unwrap().lock().set_y(current_yoffset + h);
+        FBWRITER.get().unwrap().lock().carriage_return();
+    });
+}
+
 #[macro_export]
 macro_rules! print {
     ($($arg:tt)*) => ($crate::framebuffer::_print(format_args!($($arg)*)));
@@ -295,4 +333,11 @@ macro_rules! print {
 macro_rules! println {
     () => ($crate::print!("\n"));
     ($($arg:tt)*) => ($crate::print!("{}\n", format_args!($($arg)*)));
+}
+
+#[macro_export]
+macro_rules! clear {
+    () => {
+        $crate::framebuffer::_clear()
+    };
 }

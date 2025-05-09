@@ -20,9 +20,8 @@ static TSS: Lazy<TaskStateSegment> = Lazy::new(|| {
         const STCK_SIZE: usize = 5 * 4096;
         static mut STACK: [u8; STCK_SIZE] = [0; STCK_SIZE];
 
-        let stack_start = VirtAddr::from_ptr(unsafe { addr_of!(STACK) });
-        let stack_end = stack_start + STCK_SIZE.try_into().unwrap();
-        stack_end
+        let stack_start = VirtAddr::from_ptr(addr_of!(STACK));
+        stack_start + STCK_SIZE.try_into().unwrap()
     };
     tss
 });

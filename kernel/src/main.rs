@@ -34,7 +34,6 @@ pub enum QemuExitCode {
 
 #[derive(Debug, Clone, Copy)]
 struct TableHandler {}
-
 impl AcpiHandler for TableHandler {
     unsafe fn map_physical_region<T>(
         &self,
